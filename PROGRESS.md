@@ -1,8 +1,8 @@
 # Progression - Omni-Gerant
 
 **Derniere mise a jour** : 2026-04-14
-**Dernier prompt complete** : 2.3
-**Prochain prompt a executer** : 3.1
+**Dernier prompt complete** : 3.1
+**Prochain prompt a executer** : 3.2
 
 ## Checklist des Prompts
 
@@ -18,7 +18,7 @@
 - [x] Prompt 2.3 — Catalogue Produits/Services — `COMPLETED`
 
 ### Phase 3 : Authentification et Securite
-- [ ] Prompt 3.1 — Authentification JWT + 2FA — `NOT_STARTED`
+- [x] Prompt 3.1 — Authentification JWT + 2FA — `COMPLETED`
 - [ ] Prompt 3.2 — Autorisation RBAC et RLS — `NOT_STARTED`
 
 ### Phase 4 : Module Ventes
@@ -61,10 +61,10 @@
 
 ## Statistiques
 - **Total prompts** : 32
-- **Completes** : 7
+- **Completes** : 8
 - **En cours** : 0
-- **Restants** : 25
-- **Progression** : 22%
+- **Restants** : 24
+- **Progression** : 25%
 
 ## Journal d'execution
 
@@ -77,3 +77,4 @@
 | 2026-04-14 | 2.1 | SUCCESS | Tenant module (CRUD service, SIRET lookup avec cache 24h, routes, schemas Zod), 10 nouveaux tests |
 | 2026-04-14 | 2.2 | SUCCESS | Client module (CRUD service, cursor pagination, search, Zod schemas), 13 nouveaux tests, 31 total API |
 | 2026-04-14 | 2.3 | SUCCESS | Product module (CRUD, TVA multi-taux, CSV import, Zod schemas), 15 nouveaux tests, 46 total API |
+| 2026-04-14 | 3.1 | SUCCESS | Auth (JWT, scrypt hashing, TOTP 2FA, register/login/refresh/logout), 15 nouveaux tests, 61 total API |
