@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// BUSINESS RULE [R03]: Multi-tenant avec RLS - tenant_id sur chaque table
+// BUSINESS RULE [R04]: Soft delete - deleted_at sur chaque table
+// BUSINESS RULE [R09]: UUID pour toutes les cles primaires
+
+model Tenant {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
+  siret      String?  @unique
+  siren      String?
+  naf_code   String?
+  legal_form String?
+  address    Json?
+  settings   Json     @default("{}")
+  plan       String   @default("starter")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  deleted_at DateTime?
+
+  users User[]
+
+  @@map("tenants")
+}
+
+model User {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String    @db.Uuid
+  email         String
+  password_hash String
+  first_name    String
+  last_name     String
+  role          String    @default("owner")
+  totp_secret   String?
+  totp_enabled  Boolean   @default(false)
+  last_login_at DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  deleted_at    DateTime?
+
+  tenant        Tenant    @relation(fields: [tenant_id], references: [id])
+  refresh_tokens RefreshToken[]
+
+  @@unique([tenant_id, email])
+  @@index([tenant_id, deleted_at])
+  @@map("users")
+}
+
+model RefreshToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  token_hash String    @unique
+  expires_at DateTime
+  revoked_at DateTime?
+  created_at DateTime  @default(now())
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@index([user_id])
+  @@index([token_hash])
+  @@map("refresh_tokens")
+}
+
+model AuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  user_id     String   @db.Uuid
+  action      String
+  entity_type String
+  entity_id   String?  @db.Uuid
+  old_values  Json?
+  new_values  Json?
+  ip_address  String?
+  user_agent  String?
+  created_at  DateTime @default(now())
+
+  @@index([tenant_id, created_at])
+  @@index([entity_type, entity_id])
+  @@map("audit_logs")
+}
