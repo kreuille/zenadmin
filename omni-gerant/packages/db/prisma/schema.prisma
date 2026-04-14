@@ -27,6 +27,7 @@ model Tenant {
 
   users    User[]
   clients  Client[]
+  products Product[]
 
   @@map("tenants")
 }
@@ -96,6 +97,30 @@ model Client {
   @@index([tenant_id, company_name])
   @@index([tenant_id, last_name])
   @@map("clients")
+}
+
+model Product {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String    @db.Uuid
+  type             String    @default("service")
+  reference        String?
+  name             String
+  description      String?
+  unit             String    @default("unit")
+  unit_price_cents Int
+  tva_rate         Int       @default(2000)
+  category         String?
+  is_active        Boolean   @default(true)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  deleted_at       DateTime?
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id])
+
+  @@unique([tenant_id, reference])
+  @@index([tenant_id, deleted_at])
+  @@index([tenant_id, category])
+  @@map("products")
 }
 
 model AuditLog {

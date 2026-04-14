@@ -1,8 +1,8 @@
 # Progression - Omni-Gerant
 
 **Derniere mise a jour** : 2026-04-14
-**Dernier prompt complete** : 2.2
-**Prochain prompt a executer** : 2.3
+**Dernier prompt complete** : 2.3
+**Prochain prompt a executer** : 3.1
 
 ## Checklist des Prompts
 
@@ -15,7 +15,7 @@
 ### Phase 2 : Modeles de Donnees
 - [x] Prompt 2.1 — Modele Entreprise et Lookup SIRET — `COMPLETED`
 - [x] Prompt 2.2 — Modele Client/Contact — `COMPLETED`
-- [ ] Prompt 2.3 — Catalogue Produits/Services — `NOT_STARTED`
+- [x] Prompt 2.3 — Catalogue Produits/Services — `COMPLETED`
 
 ### Phase 3 : Authentification et Securite
 - [ ] Prompt 3.1 — Authentification JWT + 2FA — `NOT_STARTED`
@@ -61,10 +61,10 @@
 
 ## Statistiques
 - **Total prompts** : 32
-- **Completes** : 6
+- **Completes** : 7
 - **En cours** : 0
-- **Restants** : 26
-- **Progression** : 19%
+- **Restants** : 25
+- **Progression** : 22%
 
 ## Journal d'execution
 
@@ -76,3 +76,4 @@
 | 2026-04-14 | 1.4 | SUCCESS | Next.js frontend (UI components, sidebar, header, auth pages, dashboard skeleton), 9 tests passent |
 | 2026-04-14 | 2.1 | SUCCESS | Tenant module (CRUD service, SIRET lookup avec cache 24h, routes, schemas Zod), 10 nouveaux tests |
 | 2026-04-14 | 2.2 | SUCCESS | Client module (CRUD service, cursor pagination, search, Zod schemas), 13 nouveaux tests, 31 total API |
+| 2026-04-14 | 2.3 | SUCCESS | Product module (CRUD, TVA multi-taux, CSV import, Zod schemas), 15 nouveaux tests, 46 total API |
