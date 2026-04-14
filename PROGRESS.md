@@ -1,8 +1,8 @@
 # Progression - Omni-Gerant
 
 **Derniere mise a jour** : 2026-04-14
-**Dernier prompt complete** : 5.1
-**Prochain prompt a executer** : 5.2
+**Dernier prompt complete** : 5.2
+**Prochain prompt a executer** : 5.3
 
 ## Checklist des Prompts
 
@@ -31,7 +31,7 @@
 
 ### Phase 5 : Module Achats
 - [x] Prompt 5.1 — Module Achats : Factures Fournisseurs — `COMPLETED`
-- [ ] Prompt 5.2 — OCR et Extraction Donnees — `NOT_STARTED`
+- [x] Prompt 5.2 — OCR et Extraction Donnees — `COMPLETED`
 - [ ] Prompt 5.3 — Parsing Email Automatique — `NOT_STARTED`
 - [ ] Prompt 5.4 — Connecteurs Fournisseurs — `NOT_STARTED`
 
@@ -61,10 +61,10 @@
 
 ## Statistiques
 - **Total prompts** : 32
-- **Completes** : 16
+- **Completes** : 17
 - **En cours** : 0
-- **Restants** : 16
-- **Progression** : 50%
+- **Restants** : 15
+- **Progression** : 53%
 
 ## Journal d'execution
 
@@ -86,3 +86,4 @@
 | 2026-04-14 | 4.5 | SUCCESS | Situations de travaux (avancement global 30/60/100%, calcul cumul et reste, TVA multi-taux, routes, composants frontend), 13 nouveaux tests, 252 total API |
 | 2026-04-14 | 4.6 | SUCCESS | Relances (5 niveaux J-3 a J+30, penalites retard, scheduler CRON, templates email, composants frontend), 16 nouveaux tests, 268 total API |
 | 2026-04-14 | 5.1 | SUCCESS | Module Achats (Supplier CRUD, Purchase CRUD+validation+paiement, SEPA XML pain.001, dashboard achats, composants frontend), 43 nouveaux tests, 311 total API |
+| 2026-04-14 | 5.2 | SUCCESS | OCR Service Python (FastAPI, Tesseract/EasyOCR, classifier, field extractor, confidence scorer, TS client, composants upload/review), 36 tests Python + 5 tests API, 316 total API |
