@@ -11,6 +11,7 @@ const SOFT_DELETE_MODELS = new Set([
   'User',
   'Client',
   'Product',
+  'Quote',
 ]);
 
 export const softDeleteMiddleware: Prisma.Middleware = async (params, next) => {

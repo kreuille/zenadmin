@@ -28,6 +28,7 @@ model Tenant {
   users    User[]
   clients  Client[]
   products Product[]
+  quotes   Quote[]
 
   @@map("tenants")
 }
@@ -92,6 +93,7 @@ model Client {
   deleted_at    DateTime?
 
   tenant Tenant @relation(fields: [tenant_id], references: [id])
+  quotes Quote[]
 
   @@index([tenant_id, deleted_at])
   @@index([tenant_id, company_name])
@@ -121,6 +123,63 @@ model Product {
   @@index([tenant_id, deleted_at])
   @@index([tenant_id, category])
   @@map("products")
+}
+
+// BUSINESS RULE [CDC-2.1]: Module Ventes - Devis
+model Quote {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String    @db.Uuid
+  client_id         String    @db.Uuid
+  number            String    // DEV-2026-00001
+  status            String    @default("draft") // draft, sent, viewed, signed, refused, expired
+  title             String?
+  description       String?
+  issue_date        DateTime  @default(now())
+  validity_date     DateTime
+  deposit_rate      Int?      // Taux acompte en basis points (3000 = 30%)
+  discount_type     String?   // percentage, fixed
+  discount_value    Int?      // Centimes ou basis points selon type
+  notes             String?   // Conditions particulieres
+  total_ht_cents    Int       @default(0)
+  total_tva_cents   Int       @default(0)
+  total_ttc_cents   Int       @default(0)
+  signed_at         DateTime?
+  signature_data    Json?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  deleted_at        DateTime?
+
+  tenant            Tenant    @relation(fields: [tenant_id], references: [id])
+  client            Client    @relation(fields: [client_id], references: [id])
+  lines             QuoteLine[]
+
+  @@unique([tenant_id, number])
+  @@index([tenant_id, deleted_at])
+  @@index([tenant_id, status])
+  @@index([tenant_id, client_id])
+  @@map("quotes")
+}
+
+model QuoteLine {
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quote_id          String  @db.Uuid
+  product_id        String? @db.Uuid
+  position          Int
+  type              String  @default("line") // line, section, subtotal, comment
+  label             String
+  description       String?
+  quantity          Decimal @db.Decimal(10, 3)
+  unit              String  @default("unit")
+  unit_price_cents  Int     @default(0)
+  tva_rate          Int     @default(2000)
+  discount_type     String? // percentage, fixed
+  discount_value    Int?
+  total_ht_cents    Int     @default(0)
+
+  quote             Quote   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+
+  @@index([quote_id, position])
+  @@map("quote_lines")
 }
 
 model AuditLog {

@@ -9,6 +9,7 @@ import { healthRoutes } from './routes/health.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { tenantRoutes } from './modules/tenant/tenant.routes.js';
 import { auditRoutes } from './modules/audit/audit.routes.js';
+import { quoteRoutes } from './modules/quote/quote.routes.js';
 import { createRequestContext, runWithContext } from './middleware/request-context.js';
 
 export async function buildApp() {
@@ -55,6 +56,7 @@ export async function buildApp() {
   await app.register(authRoutes);
   await app.register(tenantRoutes);
   await app.register(auditRoutes);
+  await app.register(quoteRoutes);
 
   return app;
 }

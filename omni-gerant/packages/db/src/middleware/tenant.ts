@@ -8,6 +8,7 @@ const TENANT_SCOPED_MODELS = new Set([
   'AuditLog',
   'Client',
   'Product',
+  'Quote',
 ]);
 
 // Models that are not tenant-scoped
