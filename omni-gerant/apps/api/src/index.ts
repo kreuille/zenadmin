@@ -1,14 +1,16 @@
 import { buildApp } from './app.js';
-
-const PORT = parseInt(process.env['PORT'] ?? '3001', 10);
-const HOST = process.env['HOST'] ?? '0.0.0.0';
+import { loadConfig } from './config.js';
+import { setupGracefulShutdown } from './lib/shutdown.js';
 
 async function start() {
-  const app = buildApp();
+  const config = loadConfig();
+  const app = await buildApp();
+
+  setupGracefulShutdown(app);
 
   try {
-    await app.listen({ port: PORT, host: HOST });
-    app.log.info(`API server running on ${HOST}:${PORT}`);
+    await app.listen({ port: config.PORT, host: config.HOST });
+    app.log.info(`API server running on ${config.HOST}:${config.PORT}`);
   } catch (error) {
     app.log.error(error);
     process.exit(1);

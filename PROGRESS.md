@@ -1,15 +1,15 @@
 # Progression - Omni-Gerant
 
 **Derniere mise a jour** : 2026-04-14
-**Dernier prompt complete** : 1.2
-**Prochain prompt a executer** : 1.3
+**Dernier prompt complete** : 1.3
+**Prochain prompt a executer** : 1.4
 
 ## Checklist des Prompts
 
 ### Phase 1 : Infrastructure
 - [x] Prompt 1.1 — Setup Monorepo et Tooling — `COMPLETED`
 - [x] Prompt 1.2 — Base de Donnees et Prisma — `COMPLETED`
-- [ ] Prompt 1.3 — Backend API Foundation — `NOT_STARTED`
+- [x] Prompt 1.3 — Backend API Foundation — `COMPLETED`
 - [ ] Prompt 1.4 — Frontend Foundation — `NOT_STARTED`
 
 ### Phase 2 : Modeles de Donnees
@@ -61,10 +61,10 @@
 
 ## Statistiques
 - **Total prompts** : 32
-- **Completes** : 2
+- **Completes** : 3
 - **En cours** : 0
-- **Restants** : 30
-- **Progression** : 6%
+- **Restants** : 29
+- **Progression** : 9%
 
 ## Journal d'execution
 
@@ -72,3 +72,4 @@
 |------|--------|--------|-------|
 | 2026-04-14 | 1.1 | SUCCESS | Monorepo pnpm + Turborepo, shared pkg (Result + Money), 53 tests passent |
 | 2026-04-14 | 1.2 | SUCCESS | Prisma schema (Tenant, User, AuditLog, RefreshToken), soft-delete + tenant middleware, 19 tests passent |
+| 2026-04-14 | 1.3 | SUCCESS | Fastify API (config Zod, error handler, rate limiter, health, graceful shutdown), 8 tests passent |
