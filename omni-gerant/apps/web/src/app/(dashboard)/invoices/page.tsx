@@ -1,0 +1,105 @@
+'use client';
+
+import Link from 'next/link';
+import { useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+
+const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'info' }> = {
+  draft: { label: 'Brouillon', variant: 'default' },
+  finalized: { label: 'Finalisee', variant: 'info' },
+  sent: { label: 'Envoyee', variant: 'info' },
+  paid: { label: 'Payee', variant: 'success' },
+  partially_paid: { label: 'Partiellement payee', variant: 'warning' },
+  overdue: { label: 'En retard', variant: 'error' },
+  cancelled: { label: 'Annulee', variant: 'error' },
+};
+
+function formatCents(cents: number): string {
+  return (cents / 100).toFixed(2).replace('.', ',') + ' EUR';
+}
+
+export default function InvoicesPage() {
+  const [search, setSearch] = useState('');
+
+  const invoices: Array<{
+    id: string;
+    number: string;
+    client_name: string;
+    type: string;
+    status: string;
+    total_ttc_cents: number;
+    remaining_cents: number;
+    issue_date: string;
+    due_date: string;
+  }> = [];
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Factures</h1>
+        <Link href="/invoices/new">
+          <Button>Nouvelle facture</Button>
+        </Link>
+      </div>
+
+      <div className="mb-4">
+        <Input
+          placeholder="Rechercher une facture..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-sm"
+        />
+      </div>
+
+      {invoices.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-gray-500">
+            <p className="text-lg mb-2">Aucune facture pour le moment</p>
+            <p className="text-sm">Creez votre premiere facture ou generez-en une depuis un devis signe.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="px-4 py-3 text-left font-medium text-gray-500">Numero</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500">Client</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500">Statut</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-500">Total TTC</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-500">Reste a payer</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500">Echeance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((inv) => {
+                  const statusInfo = STATUS_LABELS[inv.status] ?? STATUS_LABELS['draft']!;
+                  return (
+                    <tr key={inv.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <Link href={`/invoices/${inv.id}`} className="text-primary-600 hover:underline font-medium">
+                          {inv.number}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-gray-900">{inv.client_name}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium">{formatCents(inv.total_ttc_cents)}</td>
+                      <td className="px-4 py-3 text-right">{formatCents(inv.remaining_cents)}</td>
+                      <td className="px-4 py-3 text-gray-500">{inv.due_date}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}

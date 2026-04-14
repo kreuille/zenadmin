@@ -29,6 +29,7 @@ model Tenant {
   clients  Client[]
   products Product[]
   quotes   Quote[]
+  invoices Invoice[]
 
   @@map("tenants")
 }
@@ -92,8 +93,9 @@ model Client {
   updated_at    DateTime  @updatedAt
   deleted_at    DateTime?
 
-  tenant Tenant @relation(fields: [tenant_id], references: [id])
-  quotes Quote[]
+  tenant   Tenant    @relation(fields: [tenant_id], references: [id])
+  quotes   Quote[]
+  invoices Invoice[]
 
   @@index([tenant_id, deleted_at])
   @@index([tenant_id, company_name])
@@ -152,6 +154,7 @@ model Quote {
   tenant            Tenant    @relation(fields: [tenant_id], references: [id])
   client            Client    @relation(fields: [client_id], references: [id])
   lines             QuoteLine[]
+  invoices          Invoice[]
 
   @@unique([tenant_id, number])
   @@index([tenant_id, deleted_at])
@@ -180,6 +183,82 @@ model QuoteLine {
 
   @@index([quote_id, position])
   @@map("quote_lines")
+}
+
+// BUSINESS RULE [CDC-2.1]: Module Ventes - Factures
+model Invoice {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String    @db.Uuid
+  client_id             String    @db.Uuid
+  quote_id              String?   @db.Uuid
+  number                String    // FAC-2026-00001
+  type                  String    @default("standard") // standard, deposit, credit_note, situation
+  status                String    @default("draft") // draft, finalized, sent, paid, partially_paid, overdue, cancelled
+  issue_date            DateTime  @default(now())
+  due_date              DateTime
+  deposit_percent       Int?      // Pour facture d'acompte (basis points)
+  situation_percent     Int?      // Pour situation de travaux (basis points)
+  previous_situation_cents Int?   // Montant deja facture
+  payment_terms         Int       @default(30)
+  notes                 String?
+  total_ht_cents        Int       @default(0)
+  total_tva_cents       Int       @default(0)
+  total_ttc_cents       Int       @default(0)
+  paid_cents            Int       @default(0)
+  remaining_cents       Int       @default(0)
+  finalized_at          DateTime?
+  paid_at               DateTime?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+  deleted_at            DateTime?
+
+  tenant                Tenant    @relation(fields: [tenant_id], references: [id])
+  client                Client    @relation(fields: [client_id], references: [id])
+  quote                 Quote?    @relation(fields: [quote_id], references: [id])
+  lines                 InvoiceLine[]
+  payments              Payment[]
+
+  @@unique([tenant_id, number])
+  @@index([tenant_id, deleted_at])
+  @@index([tenant_id, status])
+  @@index([tenant_id, client_id])
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_id        String  @db.Uuid
+  position          Int
+  label             String
+  description       String?
+  quantity          Decimal @db.Decimal(10, 3)
+  unit              String  @default("unit")
+  unit_price_cents  Int     @default(0)
+  tva_rate          Int     @default(2000)
+  total_ht_cents    Int     @default(0)
+
+  invoice           Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+
+  @@index([invoice_id, position])
+  @@map("invoice_lines")
+}
+
+model Payment {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String   @db.Uuid
+  invoice_id      String   @db.Uuid
+  amount_cents    Int
+  payment_date    DateTime
+  payment_method  String   // bank_transfer, card, cash, check
+  reference       String?
+  notes           String?
+  created_at      DateTime @default(now())
+
+  invoice         Invoice  @relation(fields: [invoice_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([invoice_id])
+  @@map("payments")
 }
 
 model AuditLog {

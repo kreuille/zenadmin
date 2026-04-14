@@ -9,6 +9,8 @@ const TENANT_SCOPED_MODELS = new Set([
   'Client',
   'Product',
   'Quote',
+  'Invoice',
+  'Payment',
 ]);
 
 // Models that are not tenant-scoped
