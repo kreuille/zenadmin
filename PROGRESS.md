@@ -1,8 +1,8 @@
 # Progression - Omni-Gerant
 
 **Derniere mise a jour** : 2026-04-14
-**Dernier prompt complete** : 6.1
-**Prochain prompt a executer** : 6.2
+**Dernier prompt complete** : 6.2
+**Prochain prompt a executer** : 6.3
 
 ## Checklist des Prompts
 
@@ -37,7 +37,7 @@
 
 ### Phase 6 : Module Bancaire
 - [x] Prompt 6.1 — Connexion Bancaire Open Banking — `COMPLETED`
-- [ ] Prompt 6.2 — Rapprochement Bancaire — `NOT_STARTED`
+- [x] Prompt 6.2 — Rapprochement Bancaire — `COMPLETED`
 - [ ] Prompt 6.3 — Previsionnel de Tresorerie — `NOT_STARTED`
 
 ### Phase 7 : Module Legal
@@ -61,10 +61,10 @@
 
 ## Statistiques
 - **Total prompts** : 32
-- **Completes** : 20
+- **Completes** : 21
 - **En cours** : 0
-- **Restants** : 12
-- **Progression** : 63%
+- **Restants** : 11
+- **Progression** : 66%
 
 ## Journal d'execution
 
@@ -90,3 +90,4 @@
 | 2026-04-14 | 5.3 | SUCCESS | Email Parser (IMAP scanner, attachment detector, email processor pipeline, BullMQ job), 21 nouveaux tests, 337 total API |
 | 2026-04-14 | 5.4 | SUCCESS | Connecteurs fournisseurs (base+registry, Amazon/EDF/Orange/generique, retry+backoff, chiffrement AES-256, job sync, page settings), 13 nouveaux tests, 350 total API |
 | 2026-04-14 | 6.1 | SUCCESS | Connexion bancaire Open Banking (Bridge API client, bank service CRUD, sync transactions, webhook, auto-categorisation, job quotidien, pages frontend), 39 nouveaux tests, 389 total API |
+| 2026-04-14 | 6.2 | SUCCESS | Rapprochement bancaire (algorithme multi-criteres, rules/scorer/matcher, auto-match 100%, suggestions, prevention double matching, interface reconciliation), 19 nouveaux tests, 408 total API |
