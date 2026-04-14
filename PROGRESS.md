@@ -1,8 +1,8 @@
 # Progression - Omni-Gerant
 
 **Derniere mise a jour** : 2026-04-14
-**Dernier prompt complete** : 5.2
-**Prochain prompt a executer** : 5.3
+**Dernier prompt complete** : 5.3
+**Prochain prompt a executer** : 5.4
 
 ## Checklist des Prompts
 
@@ -32,7 +32,7 @@
 ### Phase 5 : Module Achats
 - [x] Prompt 5.1 — Module Achats : Factures Fournisseurs — `COMPLETED`
 - [x] Prompt 5.2 — OCR et Extraction Donnees — `COMPLETED`
-- [ ] Prompt 5.3 — Parsing Email Automatique — `NOT_STARTED`
+- [x] Prompt 5.3 — Parsing Email Automatique — `COMPLETED`
 - [ ] Prompt 5.4 — Connecteurs Fournisseurs — `NOT_STARTED`
 
 ### Phase 6 : Module Bancaire
@@ -61,10 +61,10 @@
 
 ## Statistiques
 - **Total prompts** : 32
-- **Completes** : 17
+- **Completes** : 18
 - **En cours** : 0
-- **Restants** : 15
-- **Progression** : 53%
+- **Restants** : 14
+- **Progression** : 56%
 
 ## Journal d'execution
 
@@ -87,3 +87,4 @@
 | 2026-04-14 | 4.6 | SUCCESS | Relances (5 niveaux J-3 a J+30, penalites retard, scheduler CRON, templates email, composants frontend), 16 nouveaux tests, 268 total API |
 | 2026-04-14 | 5.1 | SUCCESS | Module Achats (Supplier CRUD, Purchase CRUD+validation+paiement, SEPA XML pain.001, dashboard achats, composants frontend), 43 nouveaux tests, 311 total API |
 | 2026-04-14 | 5.2 | SUCCESS | OCR Service Python (FastAPI, Tesseract/EasyOCR, classifier, field extractor, confidence scorer, TS client, composants upload/review), 36 tests Python + 5 tests API, 316 total API |
+| 2026-04-14 | 5.3 | SUCCESS | Email Parser (IMAP scanner, attachment detector, email processor pipeline, BullMQ job), 21 nouveaux tests, 337 total API |
