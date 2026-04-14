@@ -1,8 +1,8 @@
 # Progression - Omni-Gerant
 
 **Derniere mise a jour** : 2026-04-14
-**Dernier prompt complete** : 4.6
-**Prochain prompt a executer** : 5.1
+**Dernier prompt complete** : 5.1
+**Prochain prompt a executer** : 5.2
 
 ## Checklist des Prompts
 
@@ -30,7 +30,7 @@
 - [x] Prompt 4.6 — Suivi Paiements et Relances — `COMPLETED`
 
 ### Phase 5 : Module Achats
-- [ ] Prompt 5.1 — Module Achats : Factures Fournisseurs — `NOT_STARTED`
+- [x] Prompt 5.1 — Module Achats : Factures Fournisseurs — `COMPLETED`
 - [ ] Prompt 5.2 — OCR et Extraction Donnees — `NOT_STARTED`
 - [ ] Prompt 5.3 — Parsing Email Automatique — `NOT_STARTED`
 - [ ] Prompt 5.4 — Connecteurs Fournisseurs — `NOT_STARTED`
@@ -61,10 +61,10 @@
 
 ## Statistiques
 - **Total prompts** : 32
-- **Completes** : 15
+- **Completes** : 16
 - **En cours** : 0
-- **Restants** : 17
-- **Progression** : 47%
+- **Restants** : 16
+- **Progression** : 50%
 
 ## Journal d'execution
 
@@ -85,3 +85,4 @@
 | 2026-04-14 | 4.4 | SUCCESS | Factur-X (XML CII conforme, validation donnees+structure, PDF/A-3 embedding, orchestrateur complet, multi-taux), 32 nouveaux tests, 239 total API |
 | 2026-04-14 | 4.5 | SUCCESS | Situations de travaux (avancement global 30/60/100%, calcul cumul et reste, TVA multi-taux, routes, composants frontend), 13 nouveaux tests, 252 total API |
 | 2026-04-14 | 4.6 | SUCCESS | Relances (5 niveaux J-3 a J+30, penalites retard, scheduler CRON, templates email, composants frontend), 16 nouveaux tests, 268 total API |
+| 2026-04-14 | 5.1 | SUCCESS | Module Achats (Supplier CRUD, Purchase CRUD+validation+paiement, SEPA XML pain.001, dashboard achats, composants frontend), 43 nouveaux tests, 311 total API |

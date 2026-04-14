@@ -13,6 +13,8 @@ import { quoteRoutes } from './modules/quote/quote.routes.js';
 import { invoiceRoutes } from './modules/invoice/invoice.routes.js';
 import { situationRoutes } from './modules/invoice/situation.routes.js';
 import { paymentRoutes } from './modules/payment/payment.routes.js';
+import { supplierRoutes } from './modules/supplier/supplier.routes.js';
+import { purchaseRoutes } from './modules/purchase/purchase.routes.js';
 import { createRequestContext, runWithContext } from './middleware/request-context.js';
 
 export async function buildApp() {
@@ -63,6 +65,8 @@ export async function buildApp() {
   await app.register(invoiceRoutes);
   await app.register(situationRoutes);
   await app.register(paymentRoutes);
+  await app.register(supplierRoutes);
+  await app.register(purchaseRoutes);
 
   return app;
 }

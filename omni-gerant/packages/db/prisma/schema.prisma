@@ -25,11 +25,13 @@ model Tenant {
   updated_at DateTime @updatedAt
   deleted_at DateTime?
 
-  users    User[]
-  clients  Client[]
-  products Product[]
-  quotes   Quote[]
-  invoices Invoice[]
+  users     User[]
+  clients   Client[]
+  products  Product[]
+  quotes    Quote[]
+  invoices  Invoice[]
+  suppliers Supplier[]
+  purchases Purchase[]
 
   @@map("tenants")
 }
@@ -259,6 +261,80 @@ model Payment {
   @@index([tenant_id])
   @@index([invoice_id])
   @@map("payments")
+}
+
+// BUSINESS RULE [CDC-2.2]: Module Achats - Fournisseurs
+model Supplier {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String    @db.Uuid
+  name            String
+  siret           String?
+  email           String?
+  phone           String?
+  address         Json?
+  iban            String?
+  bic             String?
+  payment_terms   Int       @default(30)
+  category        String?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  deleted_at      DateTime?
+
+  tenant          Tenant    @relation(fields: [tenant_id], references: [id])
+  purchases       Purchase[]
+
+  @@index([tenant_id, deleted_at])
+  @@index([tenant_id, name])
+  @@map("suppliers")
+}
+
+// BUSINESS RULE [CDC-2.2]: Module Achats - Factures fournisseurs
+model Purchase {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String    @db.Uuid
+  supplier_id       String?   @db.Uuid
+  number            String?
+  status            String    @default("pending") // pending, validated, paid, disputed
+  source            String    @default("manual") // manual, ocr, email, connector
+  issue_date        DateTime?
+  due_date          DateTime?
+  total_ht_cents    Int       @default(0)
+  total_tva_cents   Int       @default(0)
+  total_ttc_cents   Int       @default(0)
+  paid_cents        Int       @default(0)
+  category          String?
+  notes             String?
+  document_url      String?
+  ocr_data          Json?
+  ocr_confidence    Float?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  deleted_at        DateTime?
+
+  tenant            Tenant    @relation(fields: [tenant_id], references: [id])
+  supplier          Supplier? @relation(fields: [supplier_id], references: [id])
+  lines             PurchaseLine[]
+
+  @@index([tenant_id, deleted_at])
+  @@index([tenant_id, status])
+  @@index([tenant_id, supplier_id])
+  @@map("purchases")
+}
+
+model PurchaseLine {
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  purchase_id       String  @db.Uuid
+  position          Int
+  label             String
+  quantity          Decimal @db.Decimal(10, 3)
+  unit_price_cents  Int     @default(0)
+  tva_rate          Int     @default(2000)
+  total_ht_cents    Int     @default(0)
+
+  purchase          Purchase @relation(fields: [purchase_id], references: [id], onDelete: Cascade)
+
+  @@index([purchase_id, position])
+  @@map("purchase_lines")
 }
 
 model AuditLog {
