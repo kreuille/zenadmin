@@ -22,6 +22,7 @@ import { rgpdRoutes } from './modules/legal/rgpd/rgpd.routes.js';
 import { insuranceRoutes } from './modules/legal/insurance/insurance.routes.js';
 import { dashboardRoutes } from './modules/dashboard/dashboard.routes.js';
 import { accountingRoutes } from './modules/accounting/accounting.routes.js';
+import { paymentIntegrationRoutes } from './modules/payment/payment-integration.routes.js';
 import { createRequestContext, runWithContext } from './middleware/request-context.js';
 
 export async function buildApp() {
@@ -81,6 +82,7 @@ export async function buildApp() {
   await app.register(insuranceRoutes);
   await app.register(dashboardRoutes);
   await app.register(accountingRoutes);
+  await app.register(paymentIntegrationRoutes);
 
   return app;
 }
