@@ -1,8 +1,8 @@
 # Progression - Omni-Gerant
 
 **Derniere mise a jour** : 2026-04-14
-**Dernier prompt complete** : 7.3
-**Prochain prompt a executer** : 8.1
+**Dernier prompt complete** : 8.1
+**Prochain prompt a executer** : 8.2
 
 ## Checklist des Prompts
 
@@ -46,7 +46,7 @@
 - [x] Prompt 7.3 — Coffre-Fort Assurances — `COMPLETED`
 
 ### Phase 8 : Dashboard et UX
-- [ ] Prompt 8.1 — Dashboard Principal — `NOT_STARTED`
+- [x] Prompt 8.1 — Dashboard Principal — `COMPLETED`
 - [ ] Prompt 8.2 — Onboarding Magique — `NOT_STARTED`
 
 ### Phase 9 : Integrations
@@ -61,10 +61,10 @@
 
 ## Statistiques
 - **Total prompts** : 32
-- **Completes** : 25
+- **Completes** : 26
 - **En cours** : 0
-- **Restants** : 7
-- **Progression** : 78%
+- **Restants** : 6
+- **Progression** : 81%
 
 ## Journal d'execution
 
@@ -95,3 +95,4 @@
 | 2026-04-14 | 7.1 | SUCCESS | Generateur DUERP (base risques NAF BTP/Restauration/Commerce, matrice G×P, detection produits chimiques/equipements, PDF HTML conforme, CRUD+versioning), 28 nouveaux tests, 457 total API |
 | 2026-04-14 | 7.2 | SUCCESS | Registre RGPD (5 traitements pre-remplis TPE, CRUD registre+traitements, export TSV format CNIL, bases legales contrat/obligation/interet/consentement, composants frontend), 18 nouveaux tests, 475 total API |
 | 2026-04-14 | 7.3 | SUCCESS | Coffre-Fort Assurances (5 types RC Pro/Decennale/Multirisque/PJ/Prevoyance, CRUD+upload document, rappels M-2/M-1/J-7 avec scheduler, notifications mock, composants frontend), 19 nouveaux tests, 494 total API |
+| 2026-04-14 | 8.1 | SUCCESS | Dashboard principal (3 KPI Ce qu'on me doit/Ce que je dois/Reste a vivre reel, CA mensuel+trend, echeances semaine, activite recente, graphique barres 6 mois, Promise.all performance), 15 nouveaux tests, 509 total API |
