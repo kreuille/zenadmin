@@ -30,8 +30,9 @@ model Tenant {
   products  Product[]
   quotes    Quote[]
   invoices  Invoice[]
-  suppliers Supplier[]
-  purchases Purchase[]
+  suppliers     Supplier[]
+  purchases     Purchase[]
+  bank_accounts BankAccount[]
 
   @@map("tenants")
 }
@@ -335,6 +336,58 @@ model PurchaseLine {
 
   @@index([purchase_id, position])
   @@map("purchase_lines")
+}
+
+// BUSINESS RULE [CDC-2.3]: Module Bancaire - Comptes bancaires
+model BankAccount {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String    @db.Uuid
+  provider_id     String?   // ID chez Bridge/Powens
+  bank_name       String
+  account_name    String?
+  iban            String?
+  bic             String?
+  balance_cents   Int       @default(0)
+  currency        String    @default("EUR")
+  last_sync_at    DateTime?
+  status          String    @default("active") // active, error, disconnected
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  deleted_at      DateTime?
+
+  tenant          Tenant    @relation(fields: [tenant_id], references: [id])
+  transactions    BankTransaction[]
+
+  @@index([tenant_id, deleted_at])
+  @@index([tenant_id, status])
+  @@map("bank_accounts")
+}
+
+// BUSINESS RULE [CDC-2.3]: Module Bancaire - Transactions bancaires
+model BankTransaction {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String    @db.Uuid
+  bank_account_id String    @db.Uuid
+  provider_id     String?   // ID chez le provider
+  date            DateTime
+  value_date      DateTime?
+  amount_cents    Int
+  currency        String    @default("EUR")
+  label           String
+  raw_label       String?   // Label brut de la banque
+  category        String?
+  type            String?   // credit, debit
+  matched         Boolean   @default(false)
+  invoice_id      String?   @db.Uuid
+  purchase_id     String?   @db.Uuid
+  created_at      DateTime  @default(now())
+
+  bank_account    BankAccount @relation(fields: [bank_account_id], references: [id])
+
+  @@index([tenant_id, bank_account_id])
+  @@index([tenant_id, matched])
+  @@index([bank_account_id, date])
+  @@map("bank_transactions")
 }
 
 model AuditLog {

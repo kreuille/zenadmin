@@ -1,8 +1,8 @@
 # Progression - Omni-Gerant
 
 **Derniere mise a jour** : 2026-04-14
-**Dernier prompt complete** : 5.4
-**Prochain prompt a executer** : 6.1
+**Dernier prompt complete** : 6.1
+**Prochain prompt a executer** : 6.2
 
 ## Checklist des Prompts
 
@@ -36,7 +36,7 @@
 - [x] Prompt 5.4 — Connecteurs Fournisseurs — `COMPLETED`
 
 ### Phase 6 : Module Bancaire
-- [ ] Prompt 6.1 — Connexion Bancaire Open Banking — `NOT_STARTED`
+- [x] Prompt 6.1 — Connexion Bancaire Open Banking — `COMPLETED`
 - [ ] Prompt 6.2 — Rapprochement Bancaire — `NOT_STARTED`
 - [ ] Prompt 6.3 — Previsionnel de Tresorerie — `NOT_STARTED`
 
@@ -61,10 +61,10 @@
 
 ## Statistiques
 - **Total prompts** : 32
-- **Completes** : 19
+- **Completes** : 20
 - **En cours** : 0
-- **Restants** : 13
-- **Progression** : 59%
+- **Restants** : 12
+- **Progression** : 63%
 
 ## Journal d'execution
 
@@ -89,3 +89,4 @@
 | 2026-04-14 | 5.2 | SUCCESS | OCR Service Python (FastAPI, Tesseract/EasyOCR, classifier, field extractor, confidence scorer, TS client, composants upload/review), 36 tests Python + 5 tests API, 316 total API |
 | 2026-04-14 | 5.3 | SUCCESS | Email Parser (IMAP scanner, attachment detector, email processor pipeline, BullMQ job), 21 nouveaux tests, 337 total API |
 | 2026-04-14 | 5.4 | SUCCESS | Connecteurs fournisseurs (base+registry, Amazon/EDF/Orange/generique, retry+backoff, chiffrement AES-256, job sync, page settings), 13 nouveaux tests, 350 total API |
+| 2026-04-14 | 6.1 | SUCCESS | Connexion bancaire Open Banking (Bridge API client, bank service CRUD, sync transactions, webhook, auto-categorisation, job quotidien, pages frontend), 39 nouveaux tests, 389 total API |
