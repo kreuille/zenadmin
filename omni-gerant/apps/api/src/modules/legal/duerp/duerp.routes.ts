@@ -3,19 +3,23 @@ import {
   createDuerpService,
   type DuerpRepository,
   type DuerpDocument,
-  type DuerpRisk,
 } from './duerp.service.js';
 import { createDuerpSchema, updateDuerpSchema } from './duerp.schemas.js';
 import { getRisksByNafCode, detectPurchaseRisks } from './risk-database.js';
 import { generateDuerpHtml } from './duerp-pdf.js';
+import { createDuerpAutoFill, type TenantProfile, type PurchaseInfo, type InsuranceInfo } from './duerp-autofill.js';
+import { createSiretLookup } from '../../../lib/siret-lookup.js';
 import { authenticate, requirePermission } from '../../../plugins/auth.js';
 import { injectTenant } from '../../../plugins/tenant.js';
 
-// BUSINESS RULE [CDC-2.4]: Routes DUERP
+// BUSINESS RULE [CDC-2.4]: Routes DUERP avec auto-fill intelligent
 
 export async function duerpRoutes(app: FastifyInstance) {
-  // Placeholder in-memory repo
+  // In-memory repo
   const documents = new Map<string, DuerpDocument>();
+
+  // In-memory tenant profiles (simulated — will come from tenant module)
+  const tenantProfiles = new Map<string, TenantProfile>();
 
   const repo: DuerpRepository = {
     async create(tenantId, data) {
@@ -62,7 +66,49 @@ export async function duerpRoutes(app: FastifyInstance) {
   };
 
   const duerpService = createDuerpService(repo);
+  const siretLookup = createSiretLookup();
+
+  // Auto-fill orchestrator
+  const autoFill = createDuerpAutoFill({
+    lookupSiret: (siret) => siretLookup.lookup(siret),
+    getTenantProfile: async (tenantId) => tenantProfiles.get(tenantId) ?? null,
+    getRecentPurchases: async () => [] as PurchaseInfo[], // TODO: wire to purchases module
+    getInsurances: async () => [] as InsuranceInfo[], // TODO: wire to insurance module
+    getLatestDuerp: async (tenantId) => repo.findLatest(tenantId),
+  });
+
   const preHandlers = [authenticate, injectTenant];
+
+  // POST /api/legal/duerp/autofill — Generate auto-fill data for DUERP wizard
+  // BUSINESS RULE [CDC-2.4]: Zero saisie — pre-remplissage automatique
+  app.post(
+    '/api/legal/duerp/autofill',
+    { preHandler: [...preHandlers, requirePermission('legal', 'create')] },
+    async (request, reply) => {
+      const body = request.body as { siret?: string; naf_code?: string; company_name?: string; employee_count?: number } | undefined;
+      // Normalize SIRET: strip spaces (accepts both "890 246 390 00029" and "89024639000029")
+      const normalizedSiret = body?.siret?.replace(/\s/g, '') || undefined;
+
+      // Store/update tenant profile for auto-fill
+      const tenantId = request.auth.tenant_id;
+      const existingProfile = tenantProfiles.get(tenantId);
+      const profile: TenantProfile = {
+        id: tenantId,
+        name: body?.company_name ?? existingProfile?.name ?? 'Mon Entreprise',
+        siret: normalizedSiret ?? existingProfile?.siret ?? null,
+        siren: existingProfile?.siren ?? null,
+        naf_code: body?.naf_code ?? existingProfile?.naf_code ?? null,
+        address: existingProfile?.address ?? null,
+        employee_count: body?.employee_count ?? existingProfile?.employee_count ?? 1,
+        dirigeant_name: existingProfile?.dirigeant_name ?? null,
+      };
+      tenantProfiles.set(tenantId, profile);
+
+      const result = await autoFill.generateAutoFill(tenantId);
+      if (!result.ok) return reply.status(400).send({ error: result.error });
+      return result.value;
+    },
+  );
 
   // POST /api/legal/duerp — Generate new DUERP
   app.post(
@@ -75,7 +121,21 @@ export async function duerpRoutes(app: FastifyInstance) {
           error: { code: 'VALIDATION_ERROR', message: 'Invalid DUERP data', details: { issues: parsed.error.issues } },
         });
       }
-      const result = await duerpService.generate(request.auth.tenant_id, parsed.data);
+
+      // Update tenant profile for future auto-fills
+      const tenantId = request.auth.tenant_id;
+      tenantProfiles.set(tenantId, {
+        id: tenantId,
+        name: parsed.data.company_name,
+        siret: parsed.data.siret ?? null,
+        siren: null,
+        naf_code: parsed.data.naf_code ?? null,
+        address: parsed.data.address ?? null,
+        employee_count: parsed.data.employee_count,
+        dirigeant_name: parsed.data.evaluator_name,
+      });
+
+      const result = await duerpService.generate(tenantId, parsed.data);
       if (!result.ok) return reply.status(400).send({ error: result.error });
       return reply.status(201).send(result.value);
     },

@@ -1,124 +1,188 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createSiretLookup } from '../siret-lookup.js';
+import type { PappersClient } from '../pappers-client.js';
+import type { SireneClient } from '../sirene-client.js';
+import { ok, err, appError } from '@omni-gerant/shared';
 
-const mockApiResponse = {
-  etablissement: {
-    siret: '12345678901234',
-    siren: '123456789',
-    unite_legale: {
-      denomination: 'Test Company SARL',
-      categorie_juridique: '5710',
-    },
-    activite_principale: '4399C',
-    libelle_activite_principale: 'Travaux de couverture',
-    numero_voie: '12',
-    type_voie: 'Rue',
-    libelle_voie: 'de la Paix',
-    code_postal: '75002',
-    libelle_commune: 'Paris',
-    date_creation: '2020-01-15',
-    etat_administratif: 'A',
-  },
-};
+// BUSINESS RULE [CDC-4]: Tests du lookup SIRET enrichi avec fallback 3 couches
 
-describe('SIRET Lookup', () => {
-  let mockFetch: ReturnType<typeof vi.fn>;
-  let siretLookup: ReturnType<typeof createSiretLookup>;
+const SIRET = '12345678901234';
 
+function createMockPappers(shouldFail = false): PappersClient {
+  return {
+    lookupBySiret: vi.fn().mockImplementation(async () => {
+      if (shouldFail) return err(appError('SERVICE_UNAVAILABLE', 'Pappers unavailable'));
+      return ok({
+        siren: '123456789',
+        denomination: 'Test Company SARL',
+        forme_juridique: 'SARL',
+        code_naf: '4399C',
+        libelle_code_naf: 'Travaux de couverture',
+        numero_tva: 'FR12345678901',
+        date_creation: '2020-01-15',
+        effectifs: 12,
+        convention_collective: 'Convention BTP',
+        code_idcc: '1596',
+        siege: {
+          adresse_ligne_1: '12 Rue de la Paix',
+          code_postal: '75002',
+          ville: 'Paris',
+        },
+        etablissements: [
+          { siret: '12345678901234', nom_commercial: 'Siege', adresse_ligne_1: '12 Rue de la Paix', code_postal: '75002', ville: 'Paris', statut: 'A' },
+        ],
+        dirigeants: [
+          { nom: 'Martin', prenom: 'Jean', qualite: 'Gerant' },
+        ],
+      });
+    }),
+  };
+}
+
+function createMockSirene(shouldFail = false): SireneClient {
+  return {
+    lookupBySiret: vi.fn().mockImplementation(async () => {
+      if (shouldFail) return err(appError('SERVICE_UNAVAILABLE', 'SIRENE unavailable'));
+      return ok({
+        siret: SIRET,
+        siren: '123456789',
+        denomination: 'Test Company',
+        categorie_juridique: '5710',
+        activite_principale: '4399C',
+        libelle_activite_principale: 'Travaux de couverture',
+        adresse: {
+          numero_voie: '12',
+          type_voie: 'Rue',
+          libelle_voie: 'de la Paix',
+          code_postal: '75002',
+          libelle_commune: 'Paris',
+        },
+        date_creation: '2020-01-15',
+        etat_administratif: 'A',
+        tranche_effectifs: '11',
+      });
+    }),
+  };
+}
+
+describe('SIRET Lookup (3-layer cascade)', () => {
   beforeEach(() => {
-    mockFetch = vi.fn();
-    siretLookup = createSiretLookup({ fetch: mockFetch });
-    siretLookup.clearCache();
+    // Clear in-memory cache between tests by creating fresh instances
   });
 
-  it('fetches and parses SIRET data', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(mockApiResponse),
+  it('returns enriched data from Pappers (layer 1)', async () => {
+    const lookup = createSiretLookup({
+      pappersClient: createMockPappers(),
+      sireneClient: createMockSirene(),
     });
+    lookup.clearCache();
 
-    const result = await siretLookup.lookup('12345678901234');
-
+    const result = await lookup.lookup(SIRET);
     expect(result.ok).toBe(true);
     if (result.ok) {
+      expect(result.value.source).toBe('pappers');
       expect(result.value.company_name).toBe('Test Company SARL');
-      expect(result.value.siret).toBe('12345678901234');
-      expect(result.value.siren).toBe('123456789');
-      expect(result.value.naf_code).toBe('4399C');
-      expect(result.value.address.city).toBe('Paris');
-      expect(result.value.address.zip_code).toBe('75002');
-      expect(result.value.is_active).toBe(true);
+      expect(result.value.effectif_reel).toBe(12);
+      expect(result.value.convention_collective).toBe('Convention BTP');
+      expect(result.value.code_idcc).toBe('1596');
+      expect(result.value.dirigeants).toHaveLength(1);
+      expect(result.value.dirigeants[0]!.nom).toBe('Martin');
+      expect(result.value.etablissements).toHaveLength(1);
     }
   });
 
-  it('returns NOT_FOUND for unknown SIRET', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 404,
+  it('falls back to SIRENE (layer 2) when Pappers fails', async () => {
+    const lookup = createSiretLookup({
+      pappersClient: createMockPappers(true),
+      sireneClient: createMockSirene(),
+    });
+    lookup.clearCache();
+
+    const result = await lookup.lookup(SIRET);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.source).toBe('sirene');
+      expect(result.value.company_name).toBe('Test Company');
+      expect(result.value.convention_collective).toBeNull();
+      expect(result.value.dirigeants).toHaveLength(0);
+    }
+  });
+
+  it('falls back to data.gouv.fr (layer 3) when both Pappers and SIRENE fail', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        etablissement: {
+          siret: SIRET,
+          siren: '123456789',
+          unite_legale: { denomination: 'Test From DataGouv', categorie_juridique: '5710' },
+          activite_principale: '4399C',
+          libelle_activite_principale: 'Travaux',
+          numero_voie: '12',
+          type_voie: 'Rue',
+          libelle_voie: 'de la Paix',
+          code_postal: '75002',
+          libelle_commune: 'Paris',
+          date_creation: '2020-01-15',
+          etat_administratif: 'A',
+        },
+      }),
     });
 
-    const result = await siretLookup.lookup('99999999999999');
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe('NOT_FOUND');
-    }
-  });
-
-  it('returns SERVICE_UNAVAILABLE on API error', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 500,
+    const lookup = createSiretLookup({
+      pappersClient: createMockPappers(true),
+      sireneClient: createMockSirene(true),
+      httpFetch: mockFetch,
     });
+    lookup.clearCache();
 
-    const result = await siretLookup.lookup('12345678901234');
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe('SERVICE_UNAVAILABLE');
+    const result = await lookup.lookup(SIRET);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.source).toBe('datagouv');
+      expect(result.value.company_name).toBe('Test From DataGouv');
+      expect(result.value.effectif_reel).toBeNull();
     }
   });
 
-  it('returns SERVICE_UNAVAILABLE on network error', async () => {
-    mockFetch.mockRejectedValue(new Error('Network failure'));
+  it('returns error when all 3 layers fail', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
 
-    const result = await siretLookup.lookup('12345678901234');
+    const lookup = createSiretLookup({
+      pappersClient: createMockPappers(true),
+      sireneClient: createMockSirene(true),
+      httpFetch: mockFetch,
+    });
+    lookup.clearCache();
 
+    const result = await lookup.lookup(SIRET);
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe('SERVICE_UNAVAILABLE');
-    }
   });
 
   it('caches successful results', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(mockApiResponse),
-    });
+    const pappers = createMockPappers();
+    const lookup = createSiretLookup({ pappersClient: pappers });
+    lookup.clearCache();
 
-    // First call - fetches from API
-    await siretLookup.lookup('12345678901234');
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    await lookup.lookup(SIRET);
+    await lookup.lookup(SIRET);
 
-    // Second call - should use cache
-    const result = await siretLookup.lookup('12345678901234');
-    expect(mockFetch).toHaveBeenCalledTimes(1); // Not called again
-    expect(result.ok).toBe(true);
+    // Pappers should only be called once (second call uses cache)
+    expect(pappers.lookupBySiret).toHaveBeenCalledTimes(1);
   });
 
-  it('builds full address from components', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(mockApiResponse),
-    });
+  it('lookupBasic strips enriched fields', async () => {
+    const lookup = createSiretLookup({ pappersClient: createMockPappers() });
+    lookup.clearCache();
 
-    const result = await siretLookup.lookup('12345678901234');
-
+    const result = await lookup.lookupBasic(SIRET);
+    expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.address.line1).toBe('12 Rue de la Paix');
+      expect(result.value.company_name).toBe('Test Company SARL');
+      // Enriched fields should not be present
+      expect('effectif_reel' in result.value).toBe(false);
+      expect('dirigeants' in result.value).toBe(false);
+      expect('source' in result.value).toBe(false);
     }
   });
 });
