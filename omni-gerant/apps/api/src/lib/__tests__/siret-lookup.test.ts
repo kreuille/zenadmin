@@ -109,23 +109,32 @@ describe('SIRET Lookup (3-layer cascade)', () => {
   });
 
   it('falls back to data.gouv.fr (layer 3) when both Pappers and SIRENE fail', async () => {
+    // Mock recherche-entreprises.api.gouv.fr response format
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({
-        etablissement: {
-          siret: SIRET,
+        results: [{
           siren: '123456789',
-          unite_legale: { denomination: 'Test From DataGouv', categorie_juridique: '5710' },
+          nom_complet: 'Test From DataGouv',
+          nom_raison_sociale: 'Test From DataGouv',
+          nature_juridique: '5710',
           activite_principale: '4399C',
-          libelle_activite_principale: 'Travaux',
-          numero_voie: '12',
-          type_voie: 'Rue',
-          libelle_voie: 'de la Paix',
-          code_postal: '75002',
-          libelle_commune: 'Paris',
-          date_creation: '2020-01-15',
-          etat_administratif: 'A',
-        },
+          siege: {
+            siret: SIRET,
+            activite_principale: '4399C',
+            adresse: '12 Rue de la Paix',
+            code_postal: '75002',
+            commune: 'Paris',
+            libelle_commune: 'Paris',
+            date_creation: '2020-01-15',
+            etat_administratif: 'A',
+            tranche_effectif_salarie: null,
+          },
+          dirigeants: [],
+          matching_etablissements: [],
+          tranche_effectif_salarie: null,
+        }],
+        total_results: 1,
       }),
     });
 
