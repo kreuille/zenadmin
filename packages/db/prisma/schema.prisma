@@ -1,0 +1,410 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// BUSINESS RULE [R03]: Multi-tenant avec RLS - tenant_id sur chaque table
+// BUSINESS RULE [R04]: Soft delete - deleted_at sur chaque table
+// BUSINESS RULE [R09]: UUID pour toutes les cles primaires
+
+model Tenant {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
+  siret      String?  @unique
+  siren      String?
+  naf_code   String?
+  legal_form String?
+  address    Json?
+  settings   Json     @default("{}")
+  plan       String   @default("starter")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  deleted_at DateTime?
+
+  users     User[]
+  clients   Client[]
+  products  Product[]
+  quotes    Quote[]
+  invoices  Invoice[]
+  suppliers     Supplier[]
+  purchases     Purchase[]
+  bank_accounts BankAccount[]
+
+  @@map("tenants")
+}
+
+model User {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String    @db.Uuid
+  email         String
+  password_hash String
+  first_name    String
+  last_name     String
+  role          String    @default("owner")
+  totp_secret   String?
+  totp_enabled  Boolean   @default(false)
+  last_login_at DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  deleted_at    DateTime?
+
+  tenant        Tenant    @relation(fields: [tenant_id], references: [id])
+  refresh_tokens RefreshToken[]
+
+  @@unique([tenant_id, email])
+  @@index([tenant_id, deleted_at])
+  @@map("users")
+}
+
+model RefreshToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  token_hash String    @unique
+  expires_at DateTime
+  revoked_at DateTime?
+  created_at DateTime  @default(now())
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@index([user_id])
+  @@index([token_hash])
+  @@map("refresh_tokens")
+}
+
+model Client {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String    @db.Uuid
+  type          String    @default("company")
+  company_name  String?
+  siret         String?
+  first_name    String?
+  last_name     String?
+  email         String?
+  phone         String?
+  address_line1 String?
+  address_line2 String?
+  zip_code      String?
+  city          String?
+  country       String    @default("FR")
+  notes         String?
+  payment_terms Int       @default(30)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  deleted_at    DateTime?
+
+  tenant   Tenant    @relation(fields: [tenant_id], references: [id])
+  quotes   Quote[]
+  invoices Invoice[]
+
+  @@index([tenant_id, deleted_at])
+  @@index([tenant_id, company_name])
+  @@index([tenant_id, last_name])
+  @@map("clients")
+}
+
+model Product {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String    @db.Uuid
+  type             String    @default("service")
+  reference        String?
+  name             String
+  description      String?
+  unit             String    @default("unit")
+  unit_price_cents Int
+  tva_rate         Int       @default(2000)
+  category         String?
+  is_active        Boolean   @default(true)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  deleted_at       DateTime?
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id])
+
+  @@unique([tenant_id, reference])
+  @@index([tenant_id, deleted_at])
+  @@index([tenant_id, category])
+  @@map("products")
+}
+
+// BUSINESS RULE [CDC-2.1]: Module Ventes - Devis
+model Quote {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String    @db.Uuid
+  client_id         String    @db.Uuid
+  number            String    // DEV-2026-00001
+  status            String    @default("draft") // draft, sent, viewed, signed, refused, expired
+  title             String?
+  description       String?
+  issue_date        DateTime  @default(now())
+  validity_date     DateTime
+  deposit_rate      Int?      // Taux acompte en basis points (3000 = 30%)
+  discount_type     String?   // percentage, fixed
+  discount_value    Int?      // Centimes ou basis points selon type
+  notes             String?   // Conditions particulieres
+  total_ht_cents    Int       @default(0)
+  total_tva_cents   Int       @default(0)
+  total_ttc_cents   Int       @default(0)
+  signed_at         DateTime?
+  signature_data    Json?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  deleted_at        DateTime?
+
+  tenant            Tenant    @relation(fields: [tenant_id], references: [id])
+  client            Client    @relation(fields: [client_id], references: [id])
+  lines             QuoteLine[]
+  invoices          Invoice[]
+
+  @@unique([tenant_id, number])
+  @@index([tenant_id, deleted_at])
+  @@index([tenant_id, status])
+  @@index([tenant_id, client_id])
+  @@map("quotes")
+}
+
+model QuoteLine {
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quote_id          String  @db.Uuid
+  product_id        String? @db.Uuid
+  position          Int
+  type              String  @default("line") // line, section, subtotal, comment
+  label             String
+  description       String?
+  quantity          Decimal @db.Decimal(10, 3)
+  unit              String  @default("unit")
+  unit_price_cents  Int     @default(0)
+  tva_rate          Int     @default(2000)
+  discount_type     String? // percentage, fixed
+  discount_value    Int?
+  total_ht_cents    Int     @default(0)
+
+  quote             Quote   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+
+  @@index([quote_id, position])
+  @@map("quote_lines")
+}
+
+// BUSINESS RULE [CDC-2.1]: Module Ventes - Factures
+model Invoice {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String    @db.Uuid
+  client_id             String    @db.Uuid
+  quote_id              String?   @db.Uuid
+  number                String    // FAC-2026-00001
+  type                  String    @default("standard") // standard, deposit, credit_note, situation
+  status                String    @default("draft") // draft, finalized, sent, paid, partially_paid, overdue, cancelled
+  issue_date            DateTime  @default(now())
+  due_date              DateTime
+  deposit_percent       Int?      // Pour facture d'acompte (basis points)
+  situation_percent     Int?      // Pour situation de travaux (basis points)
+  previous_situation_cents Int?   // Montant deja facture
+  payment_terms         Int       @default(30)
+  notes                 String?
+  total_ht_cents        Int       @default(0)
+  total_tva_cents       Int       @default(0)
+  total_ttc_cents       Int       @default(0)
+  paid_cents            Int       @default(0)
+  remaining_cents       Int       @default(0)
+  finalized_at          DateTime?
+  paid_at               DateTime?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+  deleted_at            DateTime?
+
+  tenant                Tenant    @relation(fields: [tenant_id], references: [id])
+  client                Client    @relation(fields: [client_id], references: [id])
+  quote                 Quote?    @relation(fields: [quote_id], references: [id])
+  lines                 InvoiceLine[]
+  payments              Payment[]
+
+  @@unique([tenant_id, number])
+  @@index([tenant_id, deleted_at])
+  @@index([tenant_id, status])
+  @@index([tenant_id, client_id])
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_id        String  @db.Uuid
+  position          Int
+  label             String
+  description       String?
+  quantity          Decimal @db.Decimal(10, 3)
+  unit              String  @default("unit")
+  unit_price_cents  Int     @default(0)
+  tva_rate          Int     @default(2000)
+  total_ht_cents    Int     @default(0)
+
+  invoice           Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+
+  @@index([invoice_id, position])
+  @@map("invoice_lines")
+}
+
+model Payment {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String   @db.Uuid
+  invoice_id      String   @db.Uuid
+  amount_cents    Int
+  payment_date    DateTime
+  payment_method  String   // bank_transfer, card, cash, check
+  reference       String?
+  notes           String?
+  created_at      DateTime @default(now())
+
+  invoice         Invoice  @relation(fields: [invoice_id], references: [id])
+
+  @@index([tenant_id])
+  @@index([invoice_id])
+  @@map("payments")
+}
+
+// BUSINESS RULE [CDC-2.2]: Module Achats - Fournisseurs
+model Supplier {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String    @db.Uuid
+  name            String
+  siret           String?
+  email           String?
+  phone           String?
+  address         Json?
+  iban            String?
+  bic             String?
+  payment_terms   Int       @default(30)
+  category        String?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  deleted_at      DateTime?
+
+  tenant          Tenant    @relation(fields: [tenant_id], references: [id])
+  purchases       Purchase[]
+
+  @@index([tenant_id, deleted_at])
+  @@index([tenant_id, name])
+  @@map("suppliers")
+}
+
+// BUSINESS RULE [CDC-2.2]: Module Achats - Factures fournisseurs
+model Purchase {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String    @db.Uuid
+  supplier_id       String?   @db.Uuid
+  number            String?
+  status            String    @default("pending") // pending, validated, paid, disputed
+  source            String    @default("manual") // manual, ocr, email, connector
+  issue_date        DateTime?
+  due_date          DateTime?
+  total_ht_cents    Int       @default(0)
+  total_tva_cents   Int       @default(0)
+  total_ttc_cents   Int       @default(0)
+  paid_cents        Int       @default(0)
+  category          String?
+  notes             String?
+  document_url      String?
+  ocr_data          Json?
+  ocr_confidence    Float?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  deleted_at        DateTime?
+
+  tenant            Tenant    @relation(fields: [tenant_id], references: [id])
+  supplier          Supplier? @relation(fields: [supplier_id], references: [id])
+  lines             PurchaseLine[]
+
+  @@index([tenant_id, deleted_at])
+  @@index([tenant_id, status])
+  @@index([tenant_id, supplier_id])
+  @@map("purchases")
+}
+
+model PurchaseLine {
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  purchase_id       String  @db.Uuid
+  position          Int
+  label             String
+  quantity          Decimal @db.Decimal(10, 3)
+  unit_price_cents  Int     @default(0)
+  tva_rate          Int     @default(2000)
+  total_ht_cents    Int     @default(0)
+
+  purchase          Purchase @relation(fields: [purchase_id], references: [id], onDelete: Cascade)
+
+  @@index([purchase_id, position])
+  @@map("purchase_lines")
+}
+
+// BUSINESS RULE [CDC-2.3]: Module Bancaire - Comptes bancaires
+model BankAccount {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String    @db.Uuid
+  provider_id     String?   // ID chez Bridge/Powens
+  bank_name       String
+  account_name    String?
+  iban            String?
+  bic             String?
+  balance_cents   Int       @default(0)
+  currency        String    @default("EUR")
+  last_sync_at    DateTime?
+  status          String    @default("active") // active, error, disconnected
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  deleted_at      DateTime?
+
+  tenant          Tenant    @relation(fields: [tenant_id], references: [id])
+  transactions    BankTransaction[]
+
+  @@index([tenant_id, deleted_at])
+  @@index([tenant_id, status])
+  @@map("bank_accounts")
+}
+
+// BUSINESS RULE [CDC-2.3]: Module Bancaire - Transactions bancaires
+model BankTransaction {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String    @db.Uuid
+  bank_account_id String    @db.Uuid
+  provider_id     String?   // ID chez le provider
+  date            DateTime
+  value_date      DateTime?
+  amount_cents    Int
+  currency        String    @default("EUR")
+  label           String
+  raw_label       String?   // Label brut de la banque
+  category        String?
+  type            String?   // credit, debit
+  matched         Boolean   @default(false)
+  invoice_id      String?   @db.Uuid
+  purchase_id     String?   @db.Uuid
+  created_at      DateTime  @default(now())
+
+  bank_account    BankAccount @relation(fields: [bank_account_id], references: [id])
+
+  @@index([tenant_id, bank_account_id])
+  @@index([tenant_id, matched])
+  @@index([tenant_id, date])
+  @@index([bank_account_id, date])
+  @@map("bank_transactions")
+}
+
+model AuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  user_id     String   @db.Uuid
+  action      String
+  entity_type String
+  entity_id   String?  @db.Uuid
+  old_values  Json?
+  new_values  Json?
+  ip_address  String?
+  user_agent  String?
+  created_at  DateTime @default(now())
+
+  @@index([tenant_id, created_at])
+  @@index([entity_type, entity_id])
+  @@map("audit_logs")
+}
