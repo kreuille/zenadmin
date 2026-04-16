@@ -24,6 +24,9 @@ import { dashboardRoutes } from './modules/dashboard/dashboard.routes.js';
 import { accountingRoutes } from './modules/accounting/accounting.routes.js';
 import { paymentIntegrationRoutes } from './modules/payment/payment-integration.routes.js';
 import { ppfRoutes } from './modules/invoice/ppf/ppf.routes.js';
+import { settingsRoutes } from './modules/settings/settings.routes.js';
+import { clientRoutes } from './modules/client/client.routes.js';
+import { productRoutes } from './modules/product/product.routes.js';
 import { createRequestContext, runWithContext } from './middleware/request-context.js';
 
 export async function buildApp() {
@@ -85,6 +88,9 @@ export async function buildApp() {
   await app.register(accountingRoutes);
   await app.register(paymentIntegrationRoutes);
   await app.register(ppfRoutes);
+  await app.register(settingsRoutes);
+  await app.register(clientRoutes);
+  await app.register(productRoutes);
 
   return app;
 }
