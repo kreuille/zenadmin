@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import { loadConfig } from './config.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerRateLimiter } from './plugins/rate-limiter.js';
+import { registerDatabasePlugin } from './plugins/database.js';
 import { registerAuthPlugin } from './plugins/auth.js';
 import { registerTenantPlugin } from './plugins/tenant.js';
 import { healthRoutes } from './routes/health.js';
@@ -62,6 +63,7 @@ export async function buildApp() {
   await registerRateLimiter(app);
 
   // Plugins
+  await app.register(registerDatabasePlugin);
   await app.register(registerAuthPlugin);
   await app.register(registerTenantPlugin);
 
