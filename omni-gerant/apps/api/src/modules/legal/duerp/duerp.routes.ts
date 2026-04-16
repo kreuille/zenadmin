@@ -4,8 +4,9 @@ import { createPrismaDuerpRepository } from './duerp.repository.js';
 import { createDuerpSchema, updateDuerpSchema } from './duerp.schemas.js';
 import { getRisksByNafCode, detectPurchaseRisks } from './risk-database.js';
 import { generateDuerpHtml } from './duerp-pdf.js';
-import { createDuerpAutoFill, type TenantProfile, type PurchaseInfo, type InsuranceInfo } from './duerp-autofill.js';
+import { createDuerpAutoFill, type PurchaseInfo, type InsuranceInfo } from './duerp-autofill.js';
 import { createSiretLookup } from '../../../lib/siret-lookup.js';
+import { createTenantRepository } from '../../tenant/tenant.repository.js';
 import { authenticate, requirePermission } from '../../../plugins/auth.js';
 import { injectTenant } from '../../../plugins/tenant.js';
 
@@ -13,17 +14,15 @@ import { injectTenant } from '../../../plugins/tenant.js';
 
 export async function duerpRoutes(app: FastifyInstance) {
   const repo = createPrismaDuerpRepository();
-
-  // In-memory tenant profiles (simulated — will come from tenant module in P6)
-  const tenantProfiles = new Map<string, TenantProfile>();
+  const tenantRepo = createTenantRepository();
 
   const duerpService = createDuerpService(repo);
   const siretLookup = createSiretLookup();
 
-  // Auto-fill orchestrator
+  // Auto-fill orchestrator — wired to tenant repository
   const autoFill = createDuerpAutoFill({
     lookupSiret: (siret) => siretLookup.lookup(siret),
-    getTenantProfile: async (tenantId) => tenantProfiles.get(tenantId) ?? null,
+    getTenantProfile: async (tenantId) => tenantRepo.findById(tenantId),
     getRecentPurchases: async () => [] as PurchaseInfo[], // TODO: wire to purchases module
     getInsurances: async () => [] as InsuranceInfo[], // TODO: wire to insurance module
     getLatestDuerp: async (tenantId) => repo.findLatest(tenantId),
