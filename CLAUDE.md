@@ -6,21 +6,22 @@ Objectif Zero Saisie, Conformite Native (Factur-X 2026), Pilotage Proactif.
 
 ## Deploiement Production
 - **Frontend** : https://omni-gerant.vercel.app (Vercel)
-- **API** : https://omni-gerant-api.onrender.com (Render, plan free)
+- **API** : https://zenadmin-api.onrender.com (Render, plan free)
+- **Database** : PostgreSQL sur Render (zenadmin-db, plan free)
 - **GitHub** : https://github.com/kreuille/omni-gerant (public)
 - **Vercel project ID** : prj_rrWWOdvv2q3x6TpkOZLvDTNrPFvF
 - **Vercel scope** : arnaudguedou-1634s-projects
 - **Render service** : srv-d7fkjk471suc73bccdg0
 
-> **Note** : L'API utilise un stockage **in-memory** (Map). A chaque redeploy Render, les donnees sont effacees (comptes, factures, devis...). Il faudra migrer vers PostgreSQL pour la persistence.
+> **Note** : L'API utilise **PostgreSQL** via Prisma ORM. Les donnees sont persistees entre les redeploys. Les secrets (JWT_SECRET, ENCRYPTION_KEY) sont generes automatiquement par Render.
 
 ## Stack Technique
 - **Frontend** : Next.js 14.2 (App Router), TypeScript strict, Tailwind CSS
 - **Backend** : Node.js + Fastify + TypeScript strict (tsx runtime)
-- **Database** : In-memory Maps (PostgreSQL 16 + Prisma ORM prevu)
+- **Database** : PostgreSQL 16 + Prisma ORM (migre depuis in-memory Maps)
 - **AI/OCR** : Python FastAPI + LayoutLM/Donut (prevu)
 - **Monorepo** : pnpm workspaces + Turborepo
-- **Tests** : Vitest (694 tests, 61 fichiers) + Playwright E2E (51 tests)
+- **Tests** : Vitest (714 tests, 66 fichiers) + Playwright E2E (51 tests + 4 parcours prod)
 
 ## Structure Monorepo
 ```
@@ -31,10 +32,12 @@ omni-gerant/
     ocr/          # Python FastAPI OCR service (prevu)
   packages/
     shared/       # Types partages, utils, Result pattern
-    db/           # Prisma schema, migrations, seeds (prevu)
+    db/           # Prisma schema, migrations, seeds, repositories
     config/       # ESLint, TSConfig partages
-  e2e/            # Tests Playwright E2E
-  render.yaml     # Blueprint Render pour l'API
+  e2e/            # Tests Playwright E2E (local + prod)
+  scripts/        # smoke-test.sh
+  render.yaml     # Blueprint Render (API + PostgreSQL)
+  PRODUCTION-CHECKLIST.md  # Checklist mise en production
   .claude/
     launch.json   # Config serveurs dev (web + api)
 ```
@@ -135,6 +138,13 @@ omni-gerant/
 - `GET/PUT /api/settings/payments` - Paiements
 - `GET/PUT /api/settings/ppf` - PPF
 
+### Monitoring
+- `GET /health` - Liveness probe (status, uptime)
+- `GET /health/ready` - Readiness probe avec check DB
+- `GET /health/live` - Simple liveness ({alive: true})
+- `GET /health/full` - Status complet (DB, memory, uptime)
+- `GET /metrics` - Metriques applicatives (requests, errors, memory)
+
 ---
 
 ## Regles de Developpement (000-dev-rules)
@@ -167,7 +177,7 @@ Les queries par defaut filtrent `WHERE deleted_at IS NULL`.
 - Couverture globale : >= 80%
 - Code financier (calculs, montants) : >= 95%
 - Chaque prompt doit inclure ses tests
-- **Tests actuels** : 694 tests unitaires (Vitest), 51 tests E2E (Playwright)
+- **Tests actuels** : 714 tests unitaires (Vitest), 51 tests E2E local + 4 parcours E2E prod (Playwright)
 
 ### R07 - Commentaires Business Rule
 Chaque regle metier est annotee :
@@ -213,8 +223,11 @@ Commits conventionnels : `feat(module): description`, `fix(module): description`
 - `NODE_ENV` : production | development
 - `HOST` : 0.0.0.0 (pour Render)
 - `PORT` : 3001
-- `JWT_SECRET` : Cle secrete JWT (min 32 caracteres)
+- `DATABASE_URL` : URL PostgreSQL (requis)
+- `JWT_SECRET` : Cle secrete JWT (min 32 caracteres, requis, genere par Render en prod)
+- `ENCRYPTION_KEY` : Cle AES-256 (genere par Render en prod)
 - `CORS_ORIGIN` : URL du frontend autorise
+- `METRICS_API_KEY` : Cle API pour `/metrics` (optionnel, protege en prod)
 
 ---
 
@@ -339,12 +352,16 @@ Chaque profil contient des risques specifiques au secteur + 6 risques communs (r
 
 ---
 
+## Chantiers Termines
+- [x] Migration PostgreSQL (P0-P6) — tous les modules migres depuis in-memory Maps
+- [x] Mise en production (D0-D4) — render.yaml, securite, monitoring, E2E, checklist
+
 ## Prochaines Etapes
-- [ ] Migrer le stockage in-memory vers PostgreSQL + Prisma
-- [ ] Ajouter une vraie base de donnees sur Render (PostgreSQL gratuit)
+- [ ] Acheter et configurer le domaine custom (zenadmin.fr)
 - [ ] Implementer le service OCR (Python FastAPI)
 - [ ] Connecter les vrais providers bancaires (GoCardless sandbox)
 - [ ] Connecter Stripe en mode test
 - [ ] Implementer les notifications email (Resend/SendGrid)
 - [ ] Ajouter le mode sombre (theme system)
 - [ ] Tests de performance / charge
+- [ ] Backup automatique PostgreSQL (pg_dump quotidien)
