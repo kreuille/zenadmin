@@ -284,29 +284,50 @@ export function createSiretLookup(deps: SiretLookupDeps = {}) {
       const cached = await getCached(siret);
       if (cached) return ok(cached);
 
+      // Helper: run a lookup with 5s timeout
+      async function withTimeout<T>(
+        fn: () => Promise<Result<T, AppError>>,
+        label: string,
+      ): Promise<Result<T, AppError>> {
+        try {
+          const result = await Promise.race([
+            fn(),
+            new Promise<Result<T, AppError>>((resolve) =>
+              setTimeout(() => resolve(err(appError('TIMEOUT', `${label} timed out after 5s`))), 5000),
+            ),
+          ]);
+          return result;
+        } catch (error) {
+          return err(appError('SERVICE_UNAVAILABLE', `${label} error: ${error instanceof Error ? error.message : 'Unknown'}`));
+        }
+      }
+
       // Layer 1: Pappers (richest)
-      const pappersResult = await lookupPappers(siret);
+      const pappersResult = await withTimeout(() => lookupPappers(siret), 'Pappers');
       if (pappersResult.ok) {
         await setCache(siret, pappersResult.value);
         return pappersResult;
       }
 
       // Layer 2: INSEE SIRENE
-      const sireneResult = await lookupSirene(siret);
+      const sireneResult = await withTimeout(() => lookupSirene(siret), 'SIRENE');
       if (sireneResult.ok) {
         await setCache(siret, sireneResult.value);
         return sireneResult;
       }
 
       // Layer 3: data.gouv.fr (last resort)
-      const dataGouvResult = await lookupRechercheEntreprises(siret);
+      const dataGouvResult = await withTimeout(() => lookupRechercheEntreprises(siret), 'data.gouv.fr');
       if (dataGouvResult.ok) {
         await setCache(siret, dataGouvResult.value);
         return dataGouvResult;
       }
 
-      // All layers failed — return the most relevant error
-      return dataGouvResult;
+      // All layers failed — return a clear SIRET_LOOKUP_UNAVAILABLE error
+      return err(appError(
+        'SIRET_LOOKUP_UNAVAILABLE',
+        `All SIRET lookup sources failed for ${siret}. Pappers: ${!pappersResult.ok ? pappersResult.error.message : 'ok'}, SIRENE: ${!sireneResult.ok ? sireneResult.error.message : 'ok'}, data.gouv.fr: ${!dataGouvResult.ok ? dataGouvResult.error.message : 'ok'}`,
+      ));
     },
 
     /**
