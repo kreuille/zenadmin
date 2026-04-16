@@ -1,5 +1,5 @@
 import type { Result } from '@omni-gerant/shared';
-import { ok, err, notFound, appError } from '@omni-gerant/shared';
+import { ok } from '@omni-gerant/shared';
 import type { AppError } from '@omni-gerant/shared';
 import type { UpdateTenantProfileInput } from './tenant.schemas.js';
 import { detectLegalForm, detectLegalFormFromLabel, generateLegalMentions } from './legal-form.js';
