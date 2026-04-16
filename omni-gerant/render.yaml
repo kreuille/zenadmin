@@ -11,8 +11,8 @@ services:
     plan: free
     buildCommand: >-
       pnpm install &&
-      pnpm --filter @omni-gerant/shared build &&
-      pnpm --filter @omni-gerant/db build &&
+      pnpm --filter @zenadmin/shared build &&
+      pnpm --filter @zenadmin/db build &&
       cd packages/db &&
       npx prisma generate &&
       npx prisma migrate deploy
@@ -30,7 +30,7 @@ services:
       - key: ENCRYPTION_KEY
         generateValue: true
       - key: CORS_ORIGIN
-        value: https://omni-gerant.vercel.app
+        value: https://zenadmin.vercel.app
       - key: DATABASE_URL
         fromDatabase:
           name: zenadmin-db

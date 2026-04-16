@@ -1,4 +1,4 @@
-# Resume - zenAdmin (Omni-Gerant)
+# Resume - zenAdmin
 
 ## Etat actuel
 - **Developpement** : 32 prompts (1.1 a 10.3) — TERMINE
@@ -18,7 +18,7 @@ Colle ce message dans une nouvelle session Claude Code :
 
 ---
 
-Tu travailles sur le projet zenAdmin (Omni-Gerant). Lis CLAUDE.md pour le contexte complet, PROGRESS.md pour l'historique, et PRODUCTION-CHECKLIST.md pour l'etat du deploiement.
+Tu es le chef d'orchestre du developpement du projet zenAdmin. Ton role est d'executer sequentiellement tous les prompts de developpement definis dans PROMPTS_DEVELOPMENT.md, en suivant la progression via PROGRESS.md. Lis aussi CLAUDE.md pour le contexte complet et PRODUCTION-CHECKLIST.md pour l'etat du deploiement.
 
 Le developpement (32 prompts), la migration PostgreSQL (7 prompts), et la mise en production (5 prompts) sont tous termines. L'application est deployee sur Render (API + PostgreSQL) et Vercel (frontend).
 

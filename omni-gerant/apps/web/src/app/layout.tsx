@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: '%s | zenAdmin',
   },
   description:
-    'Facturation electronique, DUERP, tresorerie, devis — tout-en-un pour les TPE et artisans francais. Conforme Factur-X 2026.',
+    'Plateforme SaaS tout-en-un pour TPE, artisans et auto-entrepreneurs. Conforme Factur-X 2026.',
   keywords: ['facturation', 'TPE', 'artisan', 'DUERP', 'devis', 'tresorerie', 'Factur-X'],
   authors: [{ name: 'zenAdmin' }],
   openGraph: {
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     siteName: 'zenAdmin',
     title: 'zenAdmin — Gestion complete pour TPE',
     description:
-      'Facturation electronique, DUERP, tresorerie, devis — tout-en-un pour les TPE et artisans francais.',
+      'Plateforme SaaS tout-en-un pour TPE, artisans et auto-entrepreneurs.',
   },
   robots: {
     index: true,
