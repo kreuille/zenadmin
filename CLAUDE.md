@@ -20,7 +20,7 @@ Objectif Zero Saisie, Conformite Native (Factur-X 2026), Pilotage Proactif.
 - **Database** : In-memory Maps (PostgreSQL 16 + Prisma ORM prevu)
 - **AI/OCR** : Python FastAPI + LayoutLM/Donut (prevu)
 - **Monorepo** : pnpm workspaces + Turborepo
-- **Tests** : Vitest (914 tests, 63 fichiers) + Playwright E2E (51 tests)
+- **Tests** : Vitest (2514 tests, 68 fichiers) + Playwright E2E (51 tests)
 
 ## Structure Monorepo
 ```
@@ -74,7 +74,7 @@ zenadmin/
 
 ### 5. Effectif & Postes (RH)
 - **Module HR** complet pour gestion des postes, employes, formations et visites medicales
-- **Templates de postes** pour 8 metiers (BTP, Restaurant, Coiffure, Commerce, Boulangerie, Garage, Aide domicile, Bureau)
+- **Templates de postes** pour 161 metiers (tous secteurs NAF)
 - Auto-fill des postes depuis code NAF + effectif Pappers
 - Detection automatique surveillance medicale renforcee (SMR)
 - **WorkforceForDuerp** : service de liaison vers le DUERP (postes, effectifs, alertes formations/visites)
@@ -82,21 +82,23 @@ zenadmin/
 - Wizard frontend 3 etapes (Postes -> Employes -> Formations)
 
 ### 6. Legal & Conformite
-- **DUERP V3** : Document Unique d'Evaluation des Risques Professionnels
-  - Base de risques pour **8 profils metier** specifiques + 6 risques universels
+- **DUERP V3 complet** : Document Unique d'Evaluation des Risques Professionnels
+  - Base de risques pour **161 metiers** couvrant tous les secteurs NAF (A-U) + 6 risques universels
+  - 16 fichiers de trades : BTP (26), alimentaire (15), commerce (18), sante (10), tertiaire (12), industrie (14), agriculture (12), transport (10), proprete (8), beaute (4), education (4), hotellerie (6), securite (3), sport (5), divers (14)
   - Matrice conforme 4x4 (gravite 1-4 x frequence 1-4 → score 1-16, 4 niveaux)
   - **Plan d'actions** structure (responsable, delai, budget, suivi)
-  - **PAPRIPACT** obligatoire 50+ salaries avec consultation CSE
+  - **PAPRIPACT V2** : generation automatique depuis risques high/critical, workflow actions (todo→done→verified), suivi budget par type/priorite
+  - **Triggers automatiques** (E8) : detection chimique/equipement dans achats, rappel annuel, accident du travail, prevention doublons
+  - **Archivage immutable 40 ans** (E10) : hash SHA-256, chaine de versions, access log, inalterabilite
+  - **Formations obligatoires** : 27 formations par secteur (SST, HACCP, CACES, FIMO, CATEC, CQP, BNSSA, etc.) + tracker expiration + matrice employes
+  - **EPI par risque** : 31 equipements avec normes EN (gants, casques, harnais, ARI, DVA, tenues feu, etc.)
+  - **Veille reglementaire** simplifiee : 6 MAJ seeded, filtre par NAF/secteur, severite info/action_required
   - **Maladies professionnelles** : 8 tableaux RG (57A, 65, 66, 30/30bis, 42, 98, 79, 58)
-  - **Formations obligatoires** : 12 formations par secteur (SST, HACCP, CACES, etc.)
-  - **EPI par risque** : 13 equipements avec normes EN
-  - **Mise a jour annuelle** + 8 declencheurs automatiques + 7 rappels
+  - Mise a jour annuelle + 7 rappels + penalites conformite
   - Conservation 40 ans (Loi 2021-1018) + depot dematerialise
-  - Penalites conformite (1 500 EUR / 3 000 EUR / 3 750 EUR)
-  - References legales par secteur (PPSPS BTP, HACCP Restaurant, etc.)
-  - **Unites de travail** types pour 8 metiers (4-6 UT chacun) + support etablissements Pappers
-  - Generation PDF
-  - Detection de risques depuis les achats
+  - References legales par secteur
+  - **Unites de travail** types pour chaque metier (4-6 UT chacun) + support etablissements Pappers
+  - Generation PDF, detection de risques depuis les achats
 - **RGPD** : Registre des traitements
 - **Assurances** : Coffre-fort numerique
 
@@ -161,9 +163,17 @@ zenadmin/
 
 ### Legal
 - `GET/POST /api/legal/duerp` - DUERP (CRUD)
-- `GET /api/legal/duerp/risks/:nafCode` - Risques par code NAF
+- `GET /api/legal/duerp/risks/:nafCode` - Risques par code NAF (161 metiers)
 - `POST /api/legal/duerp/detect-risks` - Detection risques achats
 - `GET /api/legal/duerp/:id/pdf` - PDF DUERP
+- `POST /api/legal/duerp/autofill` - Auto-fill DUERP (SIRET, NAF)
+- `GET /api/legal/duerp/history` - Historique versions
+- `GET /api/legal/duerp/triggers` - Triggers non resolus (E8)
+- `GET /api/legal/duerp/triggers/history` - Historique complet triggers
+- `POST /api/legal/duerp/triggers/:id/resolve` - Resoudre un trigger
+- `GET /api/legal/duerp/update-status` - Statut conformite (a jour / recommande / requis)
+- `POST /api/legal/duerp/triggers/accident` - Signaler accident du travail
+- `POST /api/legal/duerp/triggers/check-purchase` - Detecter risques depuis achat
 - `GET/POST /api/legal/rgpd/treatments` - Traitements RGPD
 - `GET/POST /api/legal/insurance` - Assurances
 
@@ -205,7 +215,7 @@ Les queries par defaut filtrent `WHERE deleted_at IS NULL`.
 - Couverture globale : >= 80%
 - Code financier (calculs, montants) : >= 95%
 - Chaque prompt doit inclure ses tests
-- **Tests actuels** : 914 tests unitaires (Vitest, 63 fichiers), 51 tests E2E (Playwright)
+- **Tests actuels** : 2514 tests unitaires (Vitest, 68 fichiers), 51 tests E2E (Playwright)
 
 ### R07 - Commentaires Business Rule
 Chaque regle metier est annotee :
@@ -256,30 +266,47 @@ Commits conventionnels : `feat(module): description`, `fix(module): description`
 
 ---
 
-## Base de Risques DUERP V3
+## Base de Risques DUERP V3 — 161 metiers
 
-### Profils metier specifiques (risk-database-v2.ts)
+### Architecture fichiers
 
-8 profils metier detailles avec 8-9 risques specifiques chacun :
-
-| Metier | Code NAF | IDCC | Risques specifiques | UT types |
-|--------|----------|------|---------------------|----------|
-| BTP general | 41-43 | 1597 | Chute hauteur, ensevelissement, manutention, machines, bruit, poussieres, vibrations, chimique, intemperies | 6 |
-| Restaurant | 56.10 | 1979 | Brulures, coupures, glissade, manutention, produits nettoyage, incendie cuisine, bruit, agressions, HACCP | 6 |
-| Coiffure | 96.02A | 2596 | Chimique cutane/respiratoire, TMS, postures, coupures, brulures, dermatose, psycho, electrique outils | 5 |
-| Commerce | 47.xx | 2216 | Manutention, agressions, TMS caisse, chute reserve, circulation, stress, froid, ergonomie ecran | 6 |
-| Boulangerie | 10.71C | 843 | Farine/asthme, brulures, nuit, manutention, ATEX, machines, sol glissant, chaleur | 6 |
-| Garage auto | 45.20A | 1090 | Chimique CMR, ecrasement, bruit, electrique HT, manutention, peinture isocyanates, postures, incendie | 6 |
-| Aide a domicile | 88.10A | 2941 | Manutention personnes, routier, psycho, biologique, chimique menage, chute domicile, agressions, TMS | 4 |
-| Bureau / Tertiaire | 62-71 | — | Ecran, sedentarite, stress, qualite air, harcelement, TMS siege, electrique info, isolement teletravail | 4 |
+| Fichier | Trades | Secteurs |
+|---------|--------|----------|
+| `risk-database-v2.ts` | 11 (base) | BTP, Restaurant, Coiffure, Commerce, Boulangerie, Garage, Aide domicile, Bureau, Pharmacie, Electricien, Plombier |
+| `trades-btp.ts` | 15 | Peintre, Menuisier, Carreleur, Macon, Couvreur, Platrier, Charpentier, Chaudronnier, Serrurier, Terrassement, Routes, Solier, Poseur, Ascensoriste, Vitrier |
+| `trades-alimentaire.ts` | 15 | Fast-food, Collective, Traiteur, Poissonnerie, Chocolaterie, Commerce alim, Bar, Brasserie, Abattoir, Meunerie, Boucherie... |
+| `trades-commerce.ts` | 18 | Carrosserie, Fleuriste, Grande distrib, Opticien, Bijouterie, Station-service, Cycles, Location ski... |
+| `trades-sante.ts` | 10 | Ambulancier, Creche, Labo, Medecin, Veterinaire, Dentaire, Imagerie, EHPAD, Prothesiste, Funeraires |
+| `trades-tertiaire.ts` | 12 | Auto-ecole, Avocat, Banque, Expert-comptable, Immobilier, Informatique, Assurance, Finance... |
+| `trades-industrie.ts` | 14 | Imprimerie, Metallerie, Plasturgie, Bois, Scierie, Soudage, Textile, Recyclage, Papeterie... |
+| `trades-agriculture.ts` | 12 | Elevage bovin/porcin/avicole, Viticulture, Maraichage, Cereales, Horticulture, Foret, Paysagiste, Apiculture, Aquaculture, Equin |
+| `trades-transport.ts` | 10 | Routier marchandises/voyageurs, Demenagement, Coursier, Taxi, Logistique, Frigorifique, Collecte dechets, Messagerie, Fluvial |
+| `trades-proprete.ts` | 8 | Nettoyage bureaux/industriel/vitrerie, Blanchisserie, Pressing, Assainissement, Deratisation, Espaces verts |
+| `trades-beaute.ts` | 4 | Esthetique, Onglerie, Tatouage-piercing, Spa |
+| `trades-education.ts` | 4 | Ecole, College/Lycee, Formation pro, CFA |
+| `trades-hotellerie.ts` | 6 | Hotel, Camping, Gite, Residence tourisme, Auberge jeunesse, Food truck |
+| `trades-securite.ts` | 3 | Agent securite, Gardiennage, Cynophile |
+| `trades-sport-loisirs.ts` | 5 | Salle sport, Piscine, Moniteur ski, Centre equestre, Parc attractions |
+| `trades-divers.ts` | 14 | Studio photo, Evenementiel, Mairie, Police municipale, Pompiers, Fromagerie, Animalerie, Jardinerie, Librairie, Cordonnerie, Toilettage, Serrurerie, Cave a vin, Brocante |
 
 ### 6 risques universels (tous les metiers)
 Routier, psychosocial, biologique, incendie, chute de plain-pied, electrique.
 
+### Services fonctionnels
+
+| Service | Fichier | Description |
+|---------|---------|-------------|
+| **Triggers** (E8) | `duerp-trigger.service.ts` | Detection chimique/equipement dans achats, rappel annuel, accident, prevention doublons |
+| **PAPRIPACT V2** (E9) | `duerp-papripact-v2.service.ts` | Generation auto depuis risques high/critical, workflow todo→done→verified, budget |
+| **Archive 40 ans** (E10) | `duerp-archive.service.ts` | Hash SHA-256, chaine de versions, access log, inalterabilite |
+| **Formations** (E11) | `duerp-training-tracker.service.ts` | 27 formations, tracker expiration, matrice employes |
+| **EPI + Veille** (E12) | `duerp-ppe-regulatory.service.ts` | 31 EPI normes EN, veille reglementaire simplifiee |
+
 ### Bases de donnees complementaires
 - **Maladies professionnelles** : 8 tableaux RG (57A, 65, 66, 30/30bis, 42, 98, 79, 58)
-- **Formations obligatoires** : 12 formations par secteur (SST, HACCP, CACES, SS4, Certiphyto, PRAP, etc.)
-- **EPI par risque** : 13 equipements avec normes EN (gants EN 388/374/407, casque EN 397, harnais EN 361, etc.)
+- **Formations obligatoires** : 27 formations par secteur (SST, HACCP, CACES, FIMO, CATEC, CQP, BNSSA, DVA, etc.)
+- **EPI par risque** : 31 equipements avec normes EN (gants EN 388/374/407, casque EN 397, harnais EN 361, ARI EN 137, DVA EN 300, etc.)
+- **Veille reglementaire** : 6 mises a jour seeded (depot DUERP 2026, amiante, CMR, canicule, chutes, RG 103)
 - **References legales** par secteur (PPSPS BTP, HACCP Restaurant, ATEX Boulangerie, CMR Garage, etc.)
 
 ---
@@ -374,6 +401,7 @@ Routier, psychosocial, biologique, incendie, chute de plain-pied, electrique.
 ---
 
 ## Prochaines Etapes
+- [x] DUERP complet : 161 metiers, triggers, PAPRIPACT, archive 40 ans, formations, EPI, veille
 - [ ] Migrer le stockage in-memory vers PostgreSQL + Prisma
 - [ ] Ajouter une vraie base de donnees sur Render (PostgreSQL gratuit)
 - [ ] Implementer le service OCR (Python FastAPI)
