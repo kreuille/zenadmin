@@ -20,6 +20,7 @@ export interface WorkUnitDef {
   typicalHeadcount: string;
 }
 
+// BUSINESS RULE [CDC-2.4]: Interface legacy (compatibilite ascendante)
 export interface MetierRisk {
   id: string;
   name: string;
@@ -31,6 +32,70 @@ export interface MetierRisk {
   existingMeasures: string[];
   proposedActions: string[];
   category: RiskCategory;
+}
+
+// BUSINESS RULE [CDC-2.4]: Interface enrichie E0 — DetailedRisk
+// Ajoute : consequences sante, risque residuel, lien tableaux MP, mesures hierarchisees L4121-2
+export interface DetailedRisk extends MetierRisk {
+  healthConsequences: string[];
+  riskScore: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  associatedWorkUnitIds: string[];
+  preventionMeasures: DetailedPreventionMeasure[];
+  residualGravity?: 1 | 2 | 3 | 4;
+  residualFrequency?: 1 | 2 | 3 | 4;
+  residualRiskLevel?: 'low' | 'medium' | 'high' | 'critical';
+  occupationalDiseaseTableIds?: string[];
+  legalReferences?: string[];
+}
+
+// BUSINESS RULE [CDC-2.4]: Mesures de prevention hierarchisees selon les 9 principes L4121-2
+export interface DetailedPreventionMeasure {
+  id: string;
+  description: string;
+  principleLevel: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+  // 1=Eviter 2=Evaluer 3=Source 4=Adapter 5=Technique 6=Substituer 7=Planifier 8=Collectif 9=Instructions
+  principleDescription: string;
+  type: 'organizational' | 'technical' | 'human' | 'ppe';
+  priority: 'immediate' | 'short_term' | 'medium_term';
+  estimatedCostCents?: number;
+  responsibleRole?: string;
+  frequency?: string;
+  verificationMethod?: string;
+}
+
+// BUSINESS RULE [CDC-2.4]: Labels des 9 principes generaux de prevention (Art. L4121-2)
+export const PREVENTION_PRINCIPLES: Record<number, string> = {
+  1: 'Eviter les risques',
+  2: 'Evaluer les risques qui ne peuvent etre evites',
+  3: 'Combattre les risques a la source',
+  4: 'Adapter le travail a l\'homme',
+  5: 'Tenir compte de l\'evolution de la technique',
+  6: 'Remplacer ce qui est dangereux par ce qui l\'est moins',
+  7: 'Planifier la prevention',
+  8: 'Donner la priorite aux mesures de protection collective',
+  9: 'Donner les instructions appropriees aux travailleurs',
+};
+
+// Helper: convert MetierRisk to DetailedRisk
+export function toDetailedRisk(risk: MetierRisk, workUnits: WorkUnitDef[]): DetailedRisk {
+  const score = risk.defaultGravity * risk.defaultFrequency;
+  const level = score <= 4 ? 'low' : score <= 8 ? 'medium' : score <= 12 ? 'high' : 'critical';
+  return {
+    ...risk,
+    healthConsequences: [],
+    riskScore: score,
+    riskLevel: level as 'low' | 'medium' | 'high' | 'critical',
+    associatedWorkUnitIds: risk.workUnitId === '*' ? workUnits.map((wu) => wu.id) : [risk.workUnitId],
+    preventionMeasures: risk.existingMeasures.map((m, i) => ({
+      id: `${risk.id}-pm-${i}`,
+      description: m,
+      principleLevel: 9 as const,
+      principleDescription: PREVENTION_PRINCIPLES[9]!,
+      type: 'organizational' as const,
+      priority: 'short_term' as const,
+    })),
+  };
 }
 
 export type MetierCategory =
