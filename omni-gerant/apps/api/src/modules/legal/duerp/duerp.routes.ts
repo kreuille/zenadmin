@@ -8,6 +8,7 @@ import { createDuerpSchema, updateDuerpSchema } from './duerp.schemas.js';
 import { getRisksByNafCode, detectPurchaseRisks } from './risk-database.js';
 import { generateDuerpHtml } from './duerp-pdf.js';
 import { createDuerpAutoFill, type TenantProfile, type PurchaseInfo, type InsuranceInfo } from './duerp-autofill.js';
+import { createTriggerService } from './duerp-trigger.service.js';
 import { createSiretLookup } from '../../../lib/siret-lookup.js';
 import { authenticate, requirePermission } from '../../../plugins/auth.js';
 import { injectTenant } from '../../../plugins/tenant.js';
@@ -66,6 +67,7 @@ export async function duerpRoutes(app: FastifyInstance) {
   };
 
   const duerpService = createDuerpService(repo);
+  const triggerService = createTriggerService();
   const siretLookup = createSiretLookup();
 
   // Auto-fill orchestrator
@@ -244,6 +246,103 @@ export async function duerpRoutes(app: FastifyInstance) {
       const result = await duerpService.list(request.auth.tenant_id);
       if (!result.ok) return reply.status(500).send({ error: result.error });
       return result.value;
+    },
+  );
+
+  // ═══════════════════════════════════════════════════════════════
+  // E8 — Triggers de mise a jour DUERP
+  // ═══════════════════════════════════════════════════════════════
+
+  // GET /api/legal/duerp/triggers — Liste des triggers non resolus
+  app.get(
+    '/api/legal/duerp/triggers',
+    { preHandler: [...preHandlers, requirePermission('legal', 'read')] },
+    async (request) => {
+      return triggerService.getUnresolved(request.auth.tenant_id);
+    },
+  );
+
+  // GET /api/legal/duerp/triggers/history — Historique complet
+  app.get(
+    '/api/legal/duerp/triggers/history',
+    { preHandler: [...preHandlers, requirePermission('legal', 'read')] },
+    async (request) => {
+      return triggerService.getHistory(request.auth.tenant_id);
+    },
+  );
+
+  // POST /api/legal/duerp/triggers/:id/resolve — Marquer comme resolu
+  app.post(
+    '/api/legal/duerp/triggers/:id/resolve',
+    { preHandler: [...preHandlers, requirePermission('legal', 'update')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as { duerpVersionAfter?: number } | undefined;
+      const resolved = triggerService.resolve(
+        id,
+        request.auth.tenant_id,
+        request.auth.user_id,
+        body?.duerpVersionAfter,
+      );
+      if (!resolved) {
+        return reply.status(404).send({ error: { code: 'TRIGGER_NOT_FOUND', message: 'Trigger not found' } });
+      }
+      return resolved;
+    },
+  );
+
+  // GET /api/legal/duerp/update-status — Statut : a jour / mise a jour requise / urgente
+  app.get(
+    '/api/legal/duerp/update-status',
+    { preHandler: [...preHandlers, requirePermission('legal', 'read')] },
+    async (request) => {
+      const tenantId = request.auth.tenant_id;
+      const latestResult = await duerpService.getLatest(tenantId);
+      const lastUpdateDate = latestResult.ok && latestResult.value ? latestResult.value.created_at : null;
+      const profile = tenantProfiles.get(tenantId);
+      const employeeCount = profile?.employee_count ?? 1;
+      return triggerService.getUpdateStatus(tenantId, lastUpdateDate, employeeCount);
+    },
+  );
+
+  // POST /api/legal/duerp/triggers/accident — Signaler un accident du travail
+  app.post(
+    '/api/legal/duerp/triggers/accident',
+    { preHandler: [...preHandlers, requirePermission('legal', 'create')] },
+    async (request, reply) => {
+      const body = request.body as { description: string } | undefined;
+      if (!body?.description) {
+        return reply.status(400).send({
+          error: { code: 'VALIDATION_ERROR', message: 'description is required' },
+        });
+      }
+      const trigger = triggerService.reportWorkplaceAccident(request.auth.tenant_id, body.description);
+      if (!trigger) {
+        return reply.status(409).send({ error: { code: 'DUPLICATE_TRIGGER', message: 'Trigger already exists' } });
+      }
+      return reply.status(201).send(trigger);
+    },
+  );
+
+  // POST /api/legal/duerp/triggers/check-purchase — Detecter les risques depuis un achat
+  app.post(
+    '/api/legal/duerp/triggers/check-purchase',
+    { preHandler: [...preHandlers, requirePermission('legal', 'read')] },
+    async (request, reply) => {
+      const body = request.body as { purchaseId: string; description: string } | undefined;
+      if (!body?.purchaseId || !body?.description) {
+        return reply.status(400).send({
+          error: { code: 'VALIDATION_ERROR', message: 'purchaseId and description are required' },
+        });
+      }
+      const tenantId = request.auth.tenant_id;
+      const chemTrigger = triggerService.detectChemicalFromPurchase(tenantId, body.purchaseId, body.description);
+      const equipTrigger = triggerService.detectEquipmentFromPurchase(tenantId, body.purchaseId, body.description);
+      return {
+        chemical: chemTrigger,
+        equipment: equipTrigger,
+        triggersCreated: (chemTrigger ? 1 : 0) + (equipTrigger ? 1 : 0),
+      };
     },
   );
 }
