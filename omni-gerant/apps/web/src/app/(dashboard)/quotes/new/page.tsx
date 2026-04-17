@@ -41,14 +41,15 @@ export default function NewQuotePage() {
     let resolvedClientId = clientId;
     if (!resolvedClientId) {
       const clientResult = await api.post<{ id: string }>('/api/clients', {
-        name: 'Client sans nom',
+        type: 'company',
+        company_name: title || 'Client sans nom',
         payment_terms: 30,
       });
       if (clientResult.ok) {
         resolvedClientId = clientResult.value.id;
       } else {
         setSaving(false);
-        setError('Impossible de creer le client. Veuillez reessayer.');
+        setError('Veuillez selectionner un client avant d\'enregistrer le devis.');
         return;
       }
     }
