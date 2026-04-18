@@ -24,7 +24,7 @@ function getSecret(): string {
 
 export function generateAccessToken(payload: JwtPayload): string {
   return jwt.sign(payload, getSecret(), {
-    expiresIn: '15m',
+    expiresIn: '1h',
     issuer: 'zenadmin',
   });
 }
@@ -51,6 +51,6 @@ export function generateTokenPair(payload: JwtPayload): TokenPair {
   return {
     access_token: generateAccessToken(payload),
     refresh_token: generateRefreshToken(),
-    expires_in: 900, // 15 minutes in seconds
+    expires_in: 3600, // 1 hour in seconds
   };
 }
