@@ -23,7 +23,7 @@ export function middleware(request: NextRequest) {
   );
 
   // Content Security Policy
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://omni-gerant-api.onrender.com';
   const csp = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Next.js requires these
@@ -41,7 +41,7 @@ export function middleware(request: NextRequest) {
   // Auth redirect — protect dashboard routes
   const { pathname } = request.nextUrl;
   const isAuthPage = pathname === '/login' || pathname === '/register';
-  const isPublicPage = pathname.startsWith('/onboarding') || pathname.startsWith('/public') || pathname.startsWith('/share');
+  const isPublicPage = pathname.startsWith('/onboarding') || pathname.startsWith('/step-') || pathname.startsWith('/public') || pathname.startsWith('/share') || pathname === '/maintenance';
   const isApiRoute = pathname.startsWith('/api/');
   const isStaticAsset = pathname.startsWith('/_next');
 
