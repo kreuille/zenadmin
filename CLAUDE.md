@@ -1,5 +1,24 @@
 # zenAdmin - Regles du Projet
 
+## Regles de deploiement (CRITIQUE)
+
+**Referentiel complet** : `omni-gerant/DEPLOYMENT-RULES.md`
+
+Regles incontournables :
+1. **R1 — La verite, c'est `origin/main`**. Un chantier n'est livre que si ses commits sont dans `origin/main`.
+2. **R2 — Verifier avant de celebrer**. Jamais annoncer "c'est fait" sans `git log origin/main --contains <sha>`.
+3. **R3 — Audit regulier** : lancer `./scripts/check-unmerged.sh` apres chaque session importante.
+4. **R4 — Un PROGRESS.md sans SHA de main est un mensonge**. Le journal doit citer le commit merge dans main.
+5. **R7 — Checklist avant "c'est fait"** :
+   - [ ] `git push` — OK
+   - [ ] `gh pr create --base main` — PR cree
+   - [ ] `gh pr merge --merge` — PR mergee
+   - [ ] `git fetch origin main && git log origin/main -1` — mon commit est dedans
+   - [ ] `./scripts/check-unmerged.sh` — pas d'alerte sur ma branche
+   - [ ] Mise a jour `*-PROGRESS.md` avec SHA + mention `(main)`
+
+**Incident du 2026-04-18** : 27 commits critiques (DUERP 161 metiers, Invoice NF525, bug fixes) vivaient sur des branches locales jamais mergees alors que les `*-PROGRESS.md` affichaient `COMPLETED`. Voir DEPLOYMENT-RULES.md pour le detail.
+
 ## Vision
 Plateforme SaaS "tout-en-un" pour TPE, artisans et auto-entrepreneurs.
 Objectif Zero Saisie, Conformite Native (Factur-X 2026), Pilotage Proactif.
