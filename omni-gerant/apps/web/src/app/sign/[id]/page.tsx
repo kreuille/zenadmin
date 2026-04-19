@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface Sig {
   id: string; contractType: string; status: string; documentHash: string;
@@ -9,8 +9,8 @@ interface Sig {
 
 const API = process.env['NEXT_PUBLIC_API_URL'] || 'https://omni-gerant-api.onrender.com';
 
-export default function SignaturePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function SignaturePage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const [sig, setSig] = useState<Sig | null>(null);
   const [email, setEmail] = useState('');
   const [accepted, setAccepted] = useState(false);
