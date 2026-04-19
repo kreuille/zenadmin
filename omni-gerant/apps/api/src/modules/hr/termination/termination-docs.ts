@@ -169,6 +169,22 @@ Pour les droits au chomage, l'attestation officielle doit etre transmise via la 
 dans les 5 jours suivant la fin du contrat (Art. R1234-9 CT).
 </p>
 
+<h2>Portabilite mutuelle et prevoyance (loi Evin L911-8)</h2>
+<p style="font-size: 11px;">
+Le salarie beneficie de la portabilite gratuite de la mutuelle et prevoyance complementaires
+pendant <strong>12 mois maximum</strong> (duree = duree du dernier contrat, plafonnee 12 mois),
+sous reserve :
+</p>
+<ul style="font-size: 11px; padding-left: 16px;">
+<li>d'etre adherent a la date de rupture</li>
+<li>d'avoir droit aux allocations chomage (donc hors demission non legitime)</li>
+<li>de la cessation du contrat sans faute lourde</li>
+</ul>
+<p style="font-size: 11px;">
+L'organisme assureur doit etre informe par l'employeur dans le certificat de travail.
+Le salarie peut renoncer par ecrit dans les 10 jours.
+</p>
+
 <div class="signature" style="justify-content: flex-end;">
 <div style="flex: 0 0 40%;">L'Employeur<br/>Le ${fmtDate(breakdown.terminationDate)}<br/><br/>Signature :</div>
 </div>`;

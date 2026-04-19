@@ -20,6 +20,7 @@ import { getApplicablePostings, renderPostingsChecklistHtml, MANDATORY_POSTINGS 
 import { computeTermination, type TerminationReason } from './termination/termination.service.js';
 import { renderSoldeToutCompte, renderCertificatTravail, renderAttestationPoleEmploi } from './termination/termination-docs.js';
 import { exportPayrollAccounting, formatAccountingExportCsv } from './termination/payroll-accounting.js';
+import { generateMonthlyDsn, generateExitEventDsn, listDsnFilings } from './payroll/dsn.service.js';
 import { prisma } from '@zenadmin/db';
 import { authenticate, requirePermission } from '../../plugins/auth.js';
 import { injectTenant } from '../../plugins/tenant.js';
@@ -559,6 +560,54 @@ export async function hrRoutes(app: FastifyInstance) {
     },
   );
 
+  // V6 DSN endpoints
+  app.post(
+    '/api/hr/dsn/monthly/:year/:month',
+    { preHandler: [...preHandlers, requirePermission('legal', 'create')] },
+    async (request, reply) => {
+      const { year, month } = request.params as { year: string; month: string };
+      const r = await generateMonthlyDsn(request.auth.tenant_id, parseInt(year, 10), parseInt(month, 10));
+      if (!r.ok) return reply.status(400).send({ error: r.error });
+      return r.value;
+    },
+  );
+
+  app.post(
+    '/api/hr/dsn/event-exit/:employeeId',
+    { preHandler: [...preHandlers, requirePermission('legal', 'create')] },
+    async (request, reply) => {
+      const { employeeId } = request.params as { employeeId: string };
+      const body = request.body as { reason?: string };
+      const r = await generateExitEventDsn(request.auth.tenant_id, employeeId, body?.reason ?? 'fin_contrat');
+      if (!r.ok) return reply.status(400).send({ error: r.error });
+      return r.value;
+    },
+  );
+
+  app.get(
+    '/api/hr/dsn',
+    { preHandler: [...preHandlers, requirePermission('legal', 'read')] },
+    async (request) => {
+      const items = await listDsnFilings(request.auth.tenant_id);
+      return { items, total: items.length };
+    },
+  );
+
+  // V6 PAS — modifier le taux PAS d'un employe
+  app.patch(
+    '/api/hr/employees/:id/pas',
+    { preHandler: [...preHandlers, requirePermission('legal', 'update')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as { pasRateBp?: number };
+      const rate = Math.max(0, Math.min(4000, Number(body?.pasRateBp ?? 0)));
+      const e = await prisma.hrEmployee.findFirst({ where: { id, tenant_id: request.auth.tenant_id, deleted_at: null } });
+      if (!e) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Employe introuvable' } });
+      await prisma.hrEmployee.update({ where: { id }, data: { pas_rate_bp: rate } });
+      return { id, pasRateBp: rate };
+    },
+  );
+
   // PUT /api/hr/payroll/settings
   app.put(
     '/api/hr/payroll/settings',
@@ -582,6 +631,7 @@ export async function hrRoutes(app: FastifyInstance) {
         tr_enabled: Boolean(body['tr_enabled']),
         tr_face_value_cents: Math.max(0, Math.round(Number(body['tr_face_value_cents'] ?? 0))),
         tr_employer_share_bp: Math.max(5000, Math.min(6000, Number(body['tr_employer_share_bp'] ?? 5000))),
+        atmp_rate_bp: Math.max(0, Math.min(1500, Number(body['atmp_rate_bp'] ?? 150))),
       };
       const settings = await prisma.hrPayrollSettings.upsert({
         where: { tenant_id: request.auth.tenant_id },
