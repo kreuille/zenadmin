@@ -876,6 +876,7 @@ model HrEmployee {
   trainings      HrTrainingRecord[]
   medical_visits HrMedicalVisit[]
   leaves         HrLeaveRecord[]
+  payslips       HrPayslip[]
 
   @@index([tenant_id, deleted_at])
   @@index([tenant_id, exit_date])
@@ -955,4 +956,72 @@ model HrRegistryEntry {
 
   @@index([tenant_id, event_date])
   @@map("hr_registry_entries")
+}
+
+// BUSINESS RULE [CDC-RH-V2]: Paie — periodes mensuelles + bulletins
+// Conservation obligatoire 5 ans minimum (Article L3243-4 CT)
+
+model HrPayrollPeriod {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String   @db.Uuid
+  period_year  Int
+  period_month Int
+  closed_at    DateTime? // periode fermee = plus de modification
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  payslips HrPayslip[]
+
+  @@unique([tenant_id, period_year, period_month])
+  @@index([tenant_id, period_year, period_month])
+  @@map("hr_payroll_periods")
+}
+
+model HrPayslip {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String @db.Uuid
+  period_id   String @db.Uuid
+  employee_id String @db.Uuid
+  period_year  Int
+  period_month Int
+  // Rubriques brutes (centimes)
+  gross_base_cents  Int
+  overtime_cents    Int @default(0)
+  bonus_cents       Int @default(0)
+  indemnity_cents   Int @default(0)
+  gross_total_cents Int
+  // Cotisations salariales
+  urssaf_employee_cents       Int
+  retirement_employee_cents   Int
+  unemployment_employee_cents Int @default(0)
+  mutual_employee_cents       Int @default(0)
+  csg_crds_cents              Int
+  total_employee_deductions_cents Int
+  // Net
+  net_taxable_cents Int
+  net_to_pay_cents  Int
+  // Cotisations patronales (info)
+  urssaf_employer_cents        Int
+  retirement_employer_cents    Int
+  unemployment_employer_cents  Int
+  mutual_employer_cents        Int @default(0)
+  total_employer_charges_cents Int
+  // Reduction Fillon
+  fillon_reduction_cents Int @default(0)
+  // Meta
+  gross_rate_cents_per_hour Int
+  hours_worked              Float
+  paid_leave_balance        Float @default(0)
+  rtt_balance               Float @default(0)
+  pdf_url                   String?
+  sent_to_employee_at       DateTime?
+  created_at                DateTime @default(now())
+  updated_at                DateTime @updatedAt
+
+  period   HrPayrollPeriod @relation(fields: [period_id], references: [id])
+  employee HrEmployee      @relation(fields: [employee_id], references: [id])
+
+  @@unique([period_id, employee_id])
+  @@index([tenant_id, period_year, period_month])
+  @@map("hr_payslips")
 }
