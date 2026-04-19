@@ -213,6 +213,11 @@ export function renderPayslipHtml(ctx: PayslipPdfContext): string {
         <td>Net imposable</td>
         <td class="num">${formatCentsEur(payslip.net_taxable_cents)}</td>
       </tr>
+      ${(payslip.pas_cents ?? 0) > 0 ? `
+      <tr>
+        <td>Impot sur le revenu preleve a la source</td>
+        <td class="num">- ${formatCentsEur(payslip.pas_cents ?? 0)}</td>
+      </tr>` : ''}
       ${payslip.indemnity_cents > 0 ? `
       <tr>
         <td>Indemnites non soumises (transport, repas)</td>
@@ -252,13 +257,13 @@ export function renderPayslipHtml(ctx: PayslipPdfContext): string {
     </tbody>
   </table>
 
-  ${cumulative ? `
+  ${(payslip.ytd_gross_cents ?? cumulative?.grossCents ?? 0) > 0 ? `
   <h2>Cumuls annuels</h2>
   <table>
     <tbody>
-      <tr><td>Cumul brut</td><td class="num">${formatCentsEur(cumulative.grossCents)} EUR</td></tr>
-      <tr><td>Cumul net imposable</td><td class="num">${formatCentsEur(cumulative.netTaxableCents)} EUR</td></tr>
-      <tr><td>Cumul net a payer</td><td class="num">${formatCentsEur(cumulative.netToPayCents)} EUR</td></tr>
+      <tr><td>Cumul brut</td><td class="num">${formatCentsEur(payslip.ytd_gross_cents ?? cumulative?.grossCents ?? 0)} EUR</td></tr>
+      <tr><td>Cumul net imposable</td><td class="num">${formatCentsEur(payslip.ytd_net_taxable_cents ?? cumulative?.netTaxableCents ?? 0)} EUR</td></tr>
+      <tr><td>Cumul net a payer</td><td class="num">${formatCentsEur(payslip.ytd_net_to_pay_cents ?? cumulative?.netToPayCents ?? 0)} EUR</td></tr>
     </tbody>
   </table>` : ''}
 

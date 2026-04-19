@@ -50,6 +50,10 @@ export interface PayslipRecord {
   tr_count?: number;
   tr_employee_cents?: number;
   tr_employer_cents?: number;
+  pas_cents?: number;
+  ytd_gross_cents?: number;
+  ytd_net_taxable_cents?: number;
+  ytd_net_to_pay_cents?: number;
 }
 
 export async function getOrCreatePeriod(tenantId: string, year: number, month: number): Promise<{
@@ -133,7 +137,28 @@ export async function generatePayslip(
     trCount: (input as { trCount?: number }).trCount,
     trFaceValueCents: settings?.tr_enabled ? settings.tr_face_value_cents : 0,
     trEmployerShareBp: settings?.tr_enabled ? settings.tr_employer_share_bp : 0,
+    // V6
+    atmpRateBp: settings?.atmp_rate_bp ?? 150,
+    pasRateBp: employee.pas_rate_bp,
   });
+
+  // V6 : cumuls annuels (YTD jusqu'au mois courant)
+  const ytdAgg = await prisma.hrPayslip.aggregate({
+    where: {
+      tenant_id: tenantId,
+      employee_id: employee.id,
+      period_year: year,
+      period_month: { lt: month },
+    },
+    _sum: {
+      gross_total_cents: true,
+      net_taxable_cents: true,
+      net_to_pay_cents: true,
+    },
+  });
+  const ytdGross = (ytdAgg._sum.gross_total_cents ?? 0) + breakdown.grossTotalCents;
+  const ytdNetTaxable = (ytdAgg._sum.net_taxable_cents ?? 0) + breakdown.netTaxableCents;
+  const ytdNetToPay = (ytdAgg._sum.net_to_pay_cents ?? 0) + breakdown.netToPayCents;
 
   const existing = await prisma.hrPayslip.findUnique({
     where: { period_id_employee_id: { period_id: period.id, employee_id: employee.id } },
@@ -171,6 +196,10 @@ export async function generatePayslip(
     tr_count: breakdown.trCount,
     tr_employee_cents: breakdown.trEmployeeCents,
     tr_employer_cents: breakdown.trEmployerCents,
+    pas_cents: breakdown.pasCents,
+    ytd_gross_cents: ytdGross,
+    ytd_net_taxable_cents: ytdNetTaxable,
+    ytd_net_to_pay_cents: ytdNetToPay,
   };
 
   const payslip = existing

@@ -59,7 +59,14 @@ export interface PayrollInput {
   trCount?: number;
   trFaceValueCents?: number;
   trEmployerShareBp?: number; // 5000 = 50%
+
+  // V6 : AT-MP specifique + PAS
+  atmpRateBp?: number;     // defaut 150 = 1.5%
+  pasRateBp?: number;      // taux salarie (personnalise ou neutre)
 }
+
+// PMSS 2026 — plafond mensuel Securite Sociale
+export const PMSS_2026_CENTS = 386400;
 
 export interface PayrollBreakdown {
   grossBaseCents: number;
@@ -94,6 +101,10 @@ export interface PayrollBreakdown {
   trCount: number;
   trEmployeeCents: number;
   trEmployerCents: number;
+
+  // V6
+  atmpEmployerCents: number;
+  pasCents: number; // prelevement a la source (deduit du net apres impot)
 }
 
 /**
@@ -147,8 +158,12 @@ export function computePayroll(input: PayrollInput): PayrollBreakdown {
   const trEmployerCents = Math.round(trCount * trFaceValue * (trEmployerShareBp / 10000));
   const trEmployeeCents = trCount * trFaceValue - trEmployerCents;
 
-  // Net a payer = brut − total cotisations salariales + indemnites non soumises − part salariale TR
-  const netToPayCents = grossTotalCents - totalEmployeeDeductionsCents + indemnityCents - trEmployeeCents;
+  // V6 : PAS (prelevement a la source) — base = net imposable
+  const pasRate = (input.pasRateBp ?? 0) / 10000;
+  const pasCents = Math.round(netTaxableCents * pasRate);
+
+  // Net a payer = brut − total cotisations salariales + indemnites non soumises − part salariale TR − PAS
+  const netToPayCents = grossTotalCents - totalEmployeeDeductionsCents + indemnityCents - trEmployeeCents - pasCents;
 
   // ── Cotisations patronales ──────────────────────────────────────
   const urssafEmployerCents = Math.round(grossTotalCents * RATE_SS_EMPLOYER);
@@ -161,6 +176,10 @@ export function computePayroll(input: PayrollInput): PayrollBreakdown {
     ? Math.round(grossTotalCents * mutuelleRateEmpr)
     : (input.mutuelleFlatEmployerCents ?? 0);
   const prevoyanceEmployerCents = Math.round(grossTotalCents * ((input.prevoyanceEmployerRateBp ?? 0) / 10000));
+
+  // V6 : AT-MP specifique entreprise (CARSAT)
+  const atmpRateBp = input.atmpRateBp ?? 150;
+  const atmpEmployerCents = Math.round(grossTotalCents * (atmpRateBp / 10000));
 
   // ── Reduction Fillon (reduction generale) ───────────────────────
   // SMIC mensuel proratise selon horaire contractuel
@@ -179,6 +198,7 @@ export function computePayroll(input: PayrollInput): PayrollBreakdown {
     unemploymentEmployerCents +
     mutualEmployerCents +
     prevoyanceEmployerCents +
+    atmpEmployerCents +
     trEmployerCents -
     fillonReductionCents;
 
@@ -212,6 +232,8 @@ export function computePayroll(input: PayrollInput): PayrollBreakdown {
     trCount,
     trEmployeeCents,
     trEmployerCents,
+    atmpEmployerCents,
+    pasCents,
   };
 }
 
