@@ -49,7 +49,7 @@ export default function SortiePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get<{ items: Employee[] }>('/api/hr/employees?limit=200').then((r) => {
+    api.get<{ items: Employee[] }>('/api/hr/employees?limit=100').then((r) => {
       if (r.ok) setEmployees(r.value.items.filter((e) => !('exit_date' in e) || !e.exit_date));
     });
   }, []);

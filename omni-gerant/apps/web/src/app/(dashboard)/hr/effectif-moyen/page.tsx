@@ -86,15 +86,13 @@ export default function EffectifMoyenPage() {
 
           <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">Evolution mensuelle {year}</h2>
-            <div className="flex items-end gap-1 h-48">
+            <div className="flex items-stretch gap-1 h-56">
               {data.monthly.map((m) => {
-                const h = max > 0 ? (m.headcount / max) * 100 : 0;
+                const h = max > 0 ? Math.max(2, (m.headcount / max) * 100) : 0;
                 return (
-                  <div key={m.month} className="flex-1 flex flex-col items-center">
-                    <div className="w-full bg-gray-100 rounded-t flex-1 flex items-end relative group">
-                      <div className="w-full bg-primary-500 rounded-t transition-all" style={{ height: `${h}%` }} />
-                      <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs font-medium text-gray-700 opacity-0 group-hover:opacity-100">{m.headcount.toFixed(1)}</span>
-                    </div>
+                  <div key={m.month} className="flex-1 flex flex-col items-center justify-end">
+                    <span className="text-xs font-medium text-gray-700 mb-1">{m.headcount.toFixed(1)}</span>
+                    <div className="w-full bg-primary-500 rounded-t transition-all" style={{ height: `${h}%`, minHeight: m.headcount > 0 ? '4px' : '0' }} />
                     <span className="text-xs text-gray-500 mt-1">{MONTHS[m.month - 1]}</span>
                   </div>
                 );
