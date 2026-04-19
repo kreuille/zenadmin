@@ -12,7 +12,7 @@ import { createInMemoryNumberRepo as createInvoiceNumberRepo } from './document-
 import { createDocumentNumberGenerator as createInvoiceNumberGen } from './document-number.js';
 import { generateQuoteHtml } from './quote-pdf.js';
 import { createPrismaClientRepository } from '../client/client.repository.js';
-import { createEmailService, createConsoleEmailProvider } from '../../lib/email.js';
+import { createEmailService, createDefaultEmailProvider } from '../../lib/email.js';
 import { quoteSentHtml, quoteSentText } from '../../lib/email-templates/quote-sent.js';
 import { authenticate, requirePermission } from '../../plugins/auth.js';
 import { injectTenant } from '../../plugins/tenant.js';
@@ -61,7 +61,7 @@ export async function quoteRoutes(app: FastifyInstance) {
   });
   const shareService = createShareService(shareTokenRepo);
   const trackingService = createTrackingService(trackingRepo);
-  const emailService = createEmailService(createConsoleEmailProvider());
+  const emailService = createEmailService(createDefaultEmailProvider());
 
   // BUSINESS RULE [CDC-2.1]: Conversion devis -> facture
   const invoiceRepo = createPrismaInvoiceRepository();

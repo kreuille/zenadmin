@@ -37,11 +37,69 @@ export function createSmtpEmailProvider(_config: {
   from: string;
 }): EmailProvider {
   return {
-    async send(options: EmailOptions): Promise<Result<{ messageId: string }, AppError>> {
-      // Placeholder - will implement with Nodemailer
+    async send(_options: EmailOptions): Promise<Result<{ messageId: string }, AppError>> {
       return err(appError('SERVICE_UNAVAILABLE', 'SMTP not configured'));
     },
   };
+}
+
+// BUSINESS RULE [CDC-2.1]: Resend provider pour emails transactionnels
+// https://resend.com/docs/api-reference/emails/send-email
+export function createResendEmailProvider(config: {
+  apiKey: string;
+  from: string;
+  replyTo?: string;
+  httpFetch?: typeof fetch;
+}): EmailProvider {
+  const httpFetch = config.httpFetch ?? globalThis.fetch;
+  return {
+    async send(options: EmailOptions): Promise<Result<{ messageId: string }, AppError>> {
+      try {
+        const response = await httpFetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${config.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: options.from ?? config.from,
+            to: [options.to],
+            subject: options.subject,
+            html: options.html,
+            text: options.text,
+            reply_to: options.reply_to ?? config.replyTo,
+          }),
+        });
+
+        if (!response.ok) {
+          const body = await response.text().catch(() => '');
+          return err(appError('EMAIL_SEND_FAILED', `Resend returned ${response.status}: ${body.slice(0, 200)}`));
+        }
+
+        const data = await response.json() as { id?: string };
+        return ok({ messageId: data.id ?? 'unknown' });
+      } catch (error) {
+        return err(appError(
+          'EMAIL_SEND_FAILED',
+          `Resend error: ${error instanceof Error ? error.message : 'unknown'}`,
+        ));
+      }
+    },
+  };
+}
+
+// BUSINESS RULE [CDC-2.1]: Selection auto du provider selon env vars
+// RESEND_API_KEY present → Resend | sinon → Console
+export function createDefaultEmailProvider(): EmailProvider {
+  const resendKey = process.env['RESEND_API_KEY'];
+  if (resendKey) {
+    return createResendEmailProvider({
+      apiKey: resendKey,
+      from: process.env['EMAIL_FROM'] ?? 'onboarding@resend.dev',
+      replyTo: process.env['EMAIL_REPLY_TO'],
+    });
+  }
+  return createConsoleEmailProvider();
 }
 
 export function createEmailService(provider: EmailProvider) {
