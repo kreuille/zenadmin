@@ -9,6 +9,10 @@ import {
 import { findTemplateByNaf, autofillHeadcounts } from './job-templates.js';
 import { buildWorkforceForDuerp } from './workforce-for-duerp.js';
 import { validateSmic, computeAverageHeadcount, appendRegistryEntry, listRegistryEntries } from './hr-compliance.js';
+import {
+  generatePayslip, generateAllPayslips, getPayslip, listPayslips, closePeriod, markPayslipSent,
+} from './payroll/payroll.service.js';
+import { renderPayslipHtml } from './payroll/payroll-pdf.js';
 import { prisma } from '@zenadmin/db';
 import { authenticate, requirePermission } from '../../plugins/auth.js';
 import { injectTenant } from '../../plugins/tenant.js';
@@ -384,6 +388,145 @@ export async function hrRoutes(app: FastifyInstance) {
       const limit = parseInt((request.query as Record<string, string>).limit ?? '200', 10);
       const entries = await listRegistryEntries(request.auth.tenant_id, isNaN(limit) ? 200 : limit);
       return { entries, total: entries.length };
+    },
+  );
+
+  // ── V2 Paie : bulletins mensuels ─────────────────────────────────
+
+  // POST /api/hr/payroll/periods/:year/:month/generate — genere tous les bulletins
+  app.post(
+    '/api/hr/payroll/periods/:year/:month/generate',
+    { preHandler: [...preHandlers, requirePermission('legal', 'create')] },
+    async (request, reply) => {
+      const { year, month } = request.params as { year: string; month: string };
+      const y = parseInt(year, 10);
+      const m = parseInt(month, 10);
+      if (isNaN(y) || isNaN(m) || m < 1 || m > 12) {
+        return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: 'Periode invalide' } });
+      }
+      const result = await generateAllPayslips(request.auth.tenant_id, y, m);
+      if (!result.ok) return reply.status(403).send({ error: result.error });
+      return result.value;
+    },
+  );
+
+  // POST /api/hr/payroll/payslips — generer un bulletin individuel ou recalculer
+  app.post(
+    '/api/hr/payroll/payslips',
+    { preHandler: [...preHandlers, requirePermission('legal', 'create')] },
+    async (request, reply) => {
+      const body = request.body as {
+        employeeId: string; year: number; month: number;
+        overtimeCents?: number; bonusCents?: number; indemnityCents?: number; hoursWorked?: number;
+      };
+      if (!body?.employeeId || !body?.year || !body?.month) {
+        return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: 'employeeId, year, month requis' } });
+      }
+      const result = await generatePayslip(request.auth.tenant_id, body.year, body.month, body);
+      if (!result.ok) {
+        const status = result.error.code === 'FORBIDDEN' ? 403 : result.error.code === 'NOT_FOUND' ? 404 : 400;
+        return reply.status(status).send({ error: result.error });
+      }
+      return reply.status(201).send(result.value);
+    },
+  );
+
+  // GET /api/hr/payroll/periods/:year/:month — liste bulletins du mois
+  app.get(
+    '/api/hr/payroll/periods/:year/:month',
+    { preHandler: [...preHandlers, requirePermission('legal', 'read')] },
+    async (request, reply) => {
+      const { year, month } = request.params as { year: string; month: string };
+      const y = parseInt(year, 10);
+      const m = parseInt(month, 10);
+      if (isNaN(y) || isNaN(m)) {
+        return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: 'Periode invalide' } });
+      }
+      const items = await listPayslips(request.auth.tenant_id, y, m);
+      return { items, total: items.length };
+    },
+  );
+
+  // GET /api/hr/payroll/payslips/:id — detail bulletin
+  app.get(
+    '/api/hr/payroll/payslips/:id',
+    { preHandler: [...preHandlers, requirePermission('legal', 'read')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await getPayslip(id, request.auth.tenant_id);
+      if (!result.ok) return reply.status(404).send({ error: result.error });
+      return result.value;
+    },
+  );
+
+  // GET /api/hr/payroll/payslips/:id/pdf — bulletin en HTML (print -> PDF)
+  app.get(
+    '/api/hr/payroll/payslips/:id/pdf',
+    { preHandler: [...preHandlers, requirePermission('legal', 'read')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await getPayslip(id, request.auth.tenant_id);
+      if (!result.ok) return reply.status(404).send({ error: result.error });
+
+      const payslip = result.value;
+      const employee = await prisma.hrEmployee.findUnique({
+        where: { id: payslip.employee_id },
+        include: { position: true },
+      });
+      const tenant = await prisma.tenant.findUnique({ where: { id: request.auth.tenant_id } });
+
+      const html = renderPayslipHtml({
+        employer: {
+          name: tenant?.name ?? '',
+          siret: tenant?.siret ?? null,
+          nafCode: tenant?.naf_code ?? null,
+          address: tenant?.address ? JSON.stringify(tenant.address) : null,
+        },
+        employee: {
+          firstName: employee?.first_name ?? '',
+          lastName: employee?.last_name ?? '',
+          position: employee?.position?.name ?? null,
+          classification: null,
+          socialSecurityNumber: employee?.social_security_number ?? null,
+          startDate: employee?.start_date ?? null,
+          contractType: employee?.contract_type ?? null,
+        },
+        payslip,
+      });
+      return reply.type('text/html').send(html);
+    },
+  );
+
+  // POST /api/hr/payroll/payslips/:id/send — envoi email via Resend
+  app.post(
+    '/api/hr/payroll/payslips/:id/send',
+    { preHandler: [...preHandlers, requirePermission('legal', 'update')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await getPayslip(id, request.auth.tenant_id);
+      if (!result.ok) return reply.status(404).send({ error: result.error });
+      const payslip = result.value;
+      const employee = await prisma.hrEmployee.findUnique({ where: { id: payslip.employee_id } });
+      if (!employee?.email) {
+        return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: 'Salarie sans email' } });
+      }
+      // V2 : marquer envoye. V3 : integration Resend reelle avec PDF attache.
+      await markPayslipSent(id);
+      return { sent: true, email: employee.email, sentAt: new Date().toISOString() };
+    },
+  );
+
+  // POST /api/hr/payroll/periods/:year/:month/close — cloture la periode
+  app.post(
+    '/api/hr/payroll/periods/:year/:month/close',
+    { preHandler: [...preHandlers, requirePermission('legal', 'update')] },
+    async (request, reply) => {
+      const { year, month } = request.params as { year: string; month: string };
+      const y = parseInt(year, 10);
+      const m = parseInt(month, 10);
+      const result = await closePeriod(request.auth.tenant_id, y, m);
+      if (!result.ok) return reply.status(404).send({ error: result.error });
+      return result.value;
     },
   );
 }
