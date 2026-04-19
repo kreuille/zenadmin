@@ -152,20 +152,33 @@ export function createHrService(positionRepo: PositionRepository, employeeRepo: 
       // BUSINESS RULE [CDC-RH-V1]: Registre Unique du Personnel — append on hire
       // L1221-13 du Code du travail : tout employeur doit tenir un registre
       // chronologique de tous les embauchages.
-      try {
-        const { appendRegistryEntry } = await import('./hr-compliance.js');
-        await appendRegistryEntry({
-          tenant_id: tenantId,
-          employee_id: employee.id,
-          entry_type: 'embauche',
-          employee_name: `${employee.lastName} ${employee.firstName}`,
-          position_name: position?.name ?? null,
-          contract_type: employee.contractType,
-          event_date: new Date(employee.hireDate),
-        });
-      } catch {
-        // Non-blocking: registry failure doesn't prevent hire
-      }
+      void (async () => {
+        try {
+          const { appendRegistryEntry } = await import('./hr-compliance.js');
+          await appendRegistryEntry({
+            tenant_id: tenantId,
+            employee_id: employee.id,
+            entry_type: 'embauche',
+            employee_name: `${employee.lastName} ${employee.firstName}`,
+            position_name: position?.name ?? null,
+            contract_type: employee.contractType,
+            event_date: new Date(employee.hireDate),
+          });
+        } catch { /* non-blocking */ }
+      })();
+
+      // BUSINESS RULE [CDC-RH-V3]: Trigger DUERP a chaque embauche (fire-and-forget)
+      void (async () => {
+        try {
+          const { persistHrDuerpTrigger } = await import('./docs/duerp-hr-bridge.js');
+          await persistHrDuerpTrigger(tenantId, {
+            type: 'employee_hired',
+            employeeId: employee.id,
+            employeeName: `${employee.lastName} ${employee.firstName}`,
+            positionName: position?.name ?? null,
+          });
+        } catch { /* non-blocking */ }
+      })();
 
       return ok(employee);
     },
