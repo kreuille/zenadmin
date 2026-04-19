@@ -26,6 +26,7 @@ interface InvoiceItem {
   id: string;
   number: string;
   client_id: string;
+  client_name?: string | null;
   type: string;
   status: string;
   total_ht_cents: number;
@@ -98,6 +99,7 @@ export default function InvoicesPage() {
           </CardContent>
         </Card>
       ) : (
+        <>
         {/* Mobile card view */}
         <div className="space-y-3 md:hidden">
           {invoices.map((inv) => {
@@ -165,6 +167,7 @@ export default function InvoicesPage() {
             </table>
           </div>
         </Card>
+        </>
       )}
     </div>
   );

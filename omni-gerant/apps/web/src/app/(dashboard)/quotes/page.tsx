@@ -82,6 +82,7 @@ export default function QuotesPage() {
           </CardContent>
         </Card>
       ) : (
+        <>
         {/* Mobile card view */}
         <div className="space-y-3 md:hidden">
           {quotes.map((quote) => {
@@ -144,6 +145,7 @@ export default function QuotesPage() {
             </table>
           </div>
         </Card>
+        </>
       )}
     </div>
   );
