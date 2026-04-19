@@ -13,6 +13,10 @@ import {
   generatePayslip, generateAllPayslips, getPayslip, listPayslips, closePeriod, markPayslipSent,
 } from './payroll/payroll.service.js';
 import { renderPayslipHtml } from './payroll/payroll-pdf.js';
+import { generateDpae, renderDpaeHtml } from './docs/dpae.js';
+import { loadContractContext, renderContract, markContractSigned } from './docs/contract-templates.js';
+import { computeLeaveBalance, createLeave, listLeaves, type LeaveType } from './docs/leaves.service.js';
+import { getApplicablePostings, renderPostingsChecklistHtml, MANDATORY_POSTINGS } from './docs/postings.js';
 import { prisma } from '@zenadmin/db';
 import { authenticate, requirePermission } from '../../plugins/auth.js';
 import { injectTenant } from '../../plugins/tenant.js';
@@ -527,6 +531,146 @@ export async function hrRoutes(app: FastifyInstance) {
       const result = await closePeriod(request.auth.tenant_id, y, m);
       if (!result.ok) return reply.status(404).send({ error: result.error });
       return result.value;
+    },
+  );
+
+  // ── V3 Documents : DPAE, contrats, conges, affichages ────────────
+
+  // POST /api/hr/employees/:id/dpae/generate — genere la DPAE
+  app.post(
+    '/api/hr/employees/:id/dpae/generate',
+    { preHandler: [...preHandlers, requirePermission('legal', 'create')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await generateDpae(id, request.auth.tenant_id);
+      if (!result.ok) {
+        const status = result.error.code === 'NOT_FOUND' ? 404 : 400;
+        return reply.status(status).send({ error: result.error });
+      }
+      return reply.status(201).send({
+        reference: result.value.reference,
+        generatedAt: result.value.generatedAt,
+        depositUrl: 'https://www.due.urssaf.fr/',
+      });
+    },
+  );
+
+  // GET /api/hr/employees/:id/dpae/download — HTML imprimable DPAE
+  app.get(
+    '/api/hr/employees/:id/dpae/download',
+    { preHandler: [...preHandlers, requirePermission('legal', 'read')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await generateDpae(id, request.auth.tenant_id);
+      if (!result.ok) {
+        const status = result.error.code === 'NOT_FOUND' ? 404 : 400;
+        return reply.status(status).send({ error: result.error });
+      }
+      return reply.type('text/html').send(renderDpaeHtml(result.value));
+    },
+  );
+
+  // GET /api/hr/employees/:id/contract/generate — HTML contrat de travail
+  app.get(
+    '/api/hr/employees/:id/contract/generate',
+    { preHandler: [...preHandlers, requirePermission('legal', 'read')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await loadContractContext(id, request.auth.tenant_id);
+      if (!result.ok) {
+        const status = result.error.code === 'NOT_FOUND' ? 404 : 400;
+        return reply.status(status).send({ error: result.error });
+      }
+      return reply.type('text/html').send(renderContract(result.value));
+    },
+  );
+
+  // POST /api/hr/employees/:id/contract/sign — marque le contrat signe
+  app.post(
+    '/api/hr/employees/:id/contract/sign',
+    { preHandler: [...preHandlers, requirePermission('legal', 'update')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await markContractSigned(id, request.auth.tenant_id);
+      if (!result.ok) return reply.status(404).send({ error: result.error });
+      return result.value;
+    },
+  );
+
+  // GET /api/hr/employees/:id/leaves/balance — solde CP/RTT
+  app.get(
+    '/api/hr/employees/:id/leaves/balance',
+    { preHandler: [...preHandlers, requirePermission('legal', 'read')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const result = await computeLeaveBalance(id, request.auth.tenant_id);
+      if (!result.ok) return reply.status(404).send({ error: result.error });
+      return result.value;
+    },
+  );
+
+  // POST /api/hr/employees/:id/leaves — enregistre une absence/conge
+  app.post(
+    '/api/hr/employees/:id/leaves',
+    { preHandler: [...preHandlers, requirePermission('legal', 'create')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as {
+        leaveType: LeaveType; startDate: string; endDate: string;
+        daysTaken: number; notes?: string; status?: 'requested' | 'approved' | 'rejected' | 'taken';
+      };
+      if (!body?.leaveType || !body?.startDate || !body?.endDate || typeof body.daysTaken !== 'number') {
+        return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: 'leaveType, startDate, endDate, daysTaken requis' } });
+      }
+      const result = await createLeave(request.auth.tenant_id, {
+        employeeId: id,
+        leaveType: body.leaveType,
+        startDate: new Date(body.startDate),
+        endDate: new Date(body.endDate),
+        daysTaken: body.daysTaken,
+        notes: body.notes,
+        status: body.status,
+      });
+      if (!result.ok) return reply.status(400).send({ error: result.error });
+      return reply.status(201).send(result.value);
+    },
+  );
+
+  // GET /api/hr/leaves — liste tous les conges du tenant (filtre employee optionnel)
+  app.get(
+    '/api/hr/leaves',
+    { preHandler: [...preHandlers, requirePermission('legal', 'read')] },
+    async (request) => {
+      const { employeeId } = request.query as { employeeId?: string };
+      const items = await listLeaves(request.auth.tenant_id, employeeId);
+      return { items, total: items.length };
+    },
+  );
+
+  // GET /api/hr/postings — liste affichages obligatoires selon effectif
+  app.get(
+    '/api/hr/postings',
+    { preHandler: [...preHandlers, requirePermission('legal', 'read')] },
+    async (request) => {
+      const q = request.query as { headcount?: string; isErp?: string };
+      const headcount = parseInt(q.headcount ?? '0', 10);
+      const isErp = q.isErp === 'true';
+      const applicable = getApplicablePostings({ headcount: isNaN(headcount) ? 0 : headcount, isErp });
+      return { all: MANDATORY_POSTINGS, applicable, total: applicable.length };
+    },
+  );
+
+  // GET /api/hr/postings/checklist — HTML imprimable des affichages
+  app.get(
+    '/api/hr/postings/checklist',
+    { preHandler: [...preHandlers, requirePermission('legal', 'read')] },
+    async (request, reply) => {
+      const q = request.query as { headcount?: string; isErp?: string };
+      const headcount = parseInt(q.headcount ?? '0', 10);
+      const isErp = q.isErp === 'true';
+      const tenant = await prisma.tenant.findUnique({ where: { id: request.auth.tenant_id } });
+      const postings = getApplicablePostings({ headcount: isNaN(headcount) ? 0 : headcount, isErp });
+      return reply.type('text/html').send(renderPostingsChecklistHtml(tenant?.name ?? 'Entreprise', postings));
     },
   );
 }
