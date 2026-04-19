@@ -200,6 +200,7 @@ export default function PurchasesPage() {
           </CardContent>
         </Card>
       ) : (
+        <>
         {/* Mobile card view */}
         <div className="space-y-3 md:hidden">
           {purchases.map((purchase) => {
@@ -214,7 +215,7 @@ export default function PurchasesPage() {
                     </Link>
                     <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
                   </div>
-                  <p className="text-sm text-gray-900 mb-1">{purchase.supplier_name}</p>
+                  <p className="text-sm text-gray-900 mb-1">{(getSupplierName(purchase.supplier_id))}</p>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">{purchase.due_date ? formatDate(purchase.due_date) : '-'}</span>
                     <span className="font-medium">{formatCents(purchase.total_ttc_cents)}</span>
@@ -269,6 +270,7 @@ export default function PurchasesPage() {
             </table>
           </div>
         </Card>
+        </>
       )}
     </div>
   );
