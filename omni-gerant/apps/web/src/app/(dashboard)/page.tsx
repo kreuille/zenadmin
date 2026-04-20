@@ -8,6 +8,7 @@ import { UpcomingPayments } from '@/components/dashboard/upcoming-payments';
 import { RecentActivity } from '@/components/dashboard/recent-activity';
 import { RevenueChart } from '@/components/dashboard/revenue-chart';
 import { KpiCard } from '@/components/dashboard/kpi-card';
+import { DashboardEmptyState } from '@/components/dashboard/empty-state';
 import { api } from '@/lib/api-client';
 
 // BUSINESS RULE [CDC-4]: Dashboard principal actionnable
@@ -70,10 +71,32 @@ function formatCents(cents: number): string {
     .format(cents / 100);
 }
 
+interface OnboardingStatus {
+  has_profile: boolean;
+  client_count: number;
+  quote_count: number;
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData>(EMPTY_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
+
+  useEffect(() => {
+    // P2-02 : determiner s'il faut afficher l'EmptyState
+    Promise.all([
+      api.get<{ naf_code: string | null }>('/api/tenants/me'),
+      api.get<{ items: unknown[] }>('/api/clients?limit=1'),
+      api.get<{ items: unknown[] }>('/api/quotes?limit=1'),
+    ]).then(([t, c, q]) => {
+      setOnboarding({
+        has_profile: t.ok ? !!t.value.naf_code : false,
+        client_count: c.ok ? (c.value.items?.length ?? 0) : 0,
+        quote_count: q.ok ? (q.value.items?.length ?? 0) : 0,
+      });
+    }).catch(() => setOnboarding(null));
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -113,6 +136,15 @@ export default function DashboardPage() {
         <div className="mb-4 rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
           {error}
         </div>
+      )}
+
+      {/* P2-02 : EmptyState pour les nouveaux comptes */}
+      {onboarding && (!onboarding.has_profile || onboarding.client_count === 0 || onboarding.quote_count === 0) && (
+        <DashboardEmptyState
+          hasProfile={onboarding.has_profile}
+          clientCount={onboarding.client_count}
+          quoteCount={onboarding.quote_count}
+        />
       )}
 
       {/* KPI principaux — toujours visibles */}

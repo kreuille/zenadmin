@@ -1,6 +1,10 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { loadConfig } from './config.js';
+import { installFrenchZodErrors } from './lib/zod-fr.js';
+
+// P2-08 : messages Zod en francais
+installFrenchZodErrors();
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerRateLimiter } from './plugins/rate-limiter.js';
 import { registerSecurityPlugin } from './plugins/security.js';
