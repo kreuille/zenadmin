@@ -1534,3 +1534,99 @@ model EmailOtpChallenge {
   @@index([expires_at])
   @@map("email_otp_challenges")
 }
+
+// Vague L1 : Multi-entrepots
+model Warehouse {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String   @db.Uuid
+  name       String
+  address    String?
+  is_default Boolean  @default(false)
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  deleted_at DateTime?
+
+  @@index([tenant_id, deleted_at])
+  @@map("warehouses")
+}
+
+model WarehouseStock {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String   @db.Uuid
+  warehouse_id   String   @db.Uuid
+  variant_id     String?  @db.Uuid
+  product_id     String   @db.Uuid
+  quantity       Int      @default(0)
+  updated_at     DateTime @updatedAt
+
+  @@unique([warehouse_id, variant_id])
+  @@unique([warehouse_id, product_id, variant_id])
+  @@index([tenant_id, product_id])
+  @@map("warehouse_stocks")
+}
+
+// Vague L2 : E-commerce public (catalogue + panier + commande)
+model PublicCatalogConfig {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @unique @db.Uuid
+  slug        String   @unique
+  title       String   @default("Boutique en ligne")
+  description String?
+  primary_color String @default("#2563eb")
+  is_active   Boolean  @default(false)
+  // IDs des produits publies (null = tous)
+  published_product_ids String[] @default([])
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("public_catalog_configs")
+}
+
+model PublicOrder {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String   @db.Uuid
+  order_number  String
+  customer_name String
+  customer_email String
+  customer_phone String?
+  customer_address String?
+  items         Json     // [{ product_id, variant_id?, name, unit_price_cents, tva_rate, qty, line_total_cents }]
+  total_ht_cents  Int
+  total_tva_cents Int
+  total_ttc_cents Int
+  status        String   @default("pending") // pending | confirmed | paid | shipped | cancelled
+  stripe_session_id String?
+  invoice_id    String?  @db.Uuid
+  created_at    DateTime @default(now())
+
+  @@unique([tenant_id, order_number])
+  @@index([tenant_id, created_at(sort: Desc)])
+  @@map("public_orders")
+}
+
+// Vague L3 : Kanban taches
+model Task {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  board       String   @default("default")
+  title       String
+  description String?
+  status      String   @default("todo")       // todo | doing | done
+  priority    String   @default("medium")     // low | medium | high | urgent
+  assignee_id String?  @db.Uuid
+  client_id   String?  @db.Uuid
+  quote_id    String?  @db.Uuid
+  invoice_id  String?  @db.Uuid
+  due_at      DateTime?
+  completed_at DateTime?
+  labels      String[] @default([])
+  position    Int      @default(0)
+  created_by  String   @db.Uuid
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  deleted_at  DateTime?
+
+  @@index([tenant_id, board, status, position])
+  @@index([tenant_id, assignee_id])
+  @@map("tasks")
+}

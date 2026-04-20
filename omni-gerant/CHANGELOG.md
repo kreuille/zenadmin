@@ -6,6 +6,17 @@ Versionnage : [SemVer](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Vague L — Business Tools
+- **L1 Multi-entrepots** : `Warehouse` + `WarehouseStock` par emplacement,
+  defaut unique, `POST /api/warehouses/transfer` atomique entre entrepots
+  (Prisma $transaction).
+- **L2 E-commerce public** : `PublicCatalogConfig` (slug, couleur, produits
+  publies) + `PublicOrder`, `GET /api/public/catalog/:slug` + panier +
+  Stripe Checkout automatique pour la commande.
+- **L3 Kanban taches** : `Task` (board, status todo/doing/done, priority
+  low/medium/high/urgent, assignee, labels, liens client/devis/facture),
+  `/api/tasks/reorder` pour drag & drop.
+
 ### Vague K — Compliance & Archivage
 - **K1 Audit trail v2** : `AuditEvent` append-only (correlation_id, metadata
   JSON, indexes tenant+created_at+resource). `logAuditEvent()` helper
