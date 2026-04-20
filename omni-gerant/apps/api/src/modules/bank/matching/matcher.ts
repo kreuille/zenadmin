@@ -1,4 +1,4 @@
-import { ok, err } from '@zenadmin/shared';
+import { ok } from '@zenadmin/shared';
 import type { Result, AppError } from '@zenadmin/shared';
 import type { BankTransaction } from '../bank.service.js';
 import type { MatchCandidate } from './rules.js';

@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface Payslip { id: string; year: number; month: number; grossCents: number; netCents: number; sentAt: string | null }
 interface PortalData { employee: { firstName: string; lastName: string; email: string | null }; payslips: Payslip[] }
@@ -8,8 +8,8 @@ interface PortalData { employee: { firstName: string; lastName: string; email: s
 const API = process.env['NEXT_PUBLIC_API_URL'] || 'https://omni-gerant-api.onrender.com';
 const MONTHS = ['Jan','Fev','Mar','Avr','Mai','Jun','Jul','Aou','Sep','Oct','Nov','Dec'];
 
-export default function PortalPage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = use(params);
+export default function PortalPage({ params }: { params: { token: string } }) {
+  const { token } = params;
   const [data, setData] = useState<PortalData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
