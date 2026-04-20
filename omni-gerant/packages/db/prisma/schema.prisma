@@ -1255,3 +1255,21 @@ model Notification {
   @@index([tenant_id, created_at(sort: Desc)])
   @@map("notifications")
 }
+
+// Vague F1 : Templates de devis et factures reutilisables
+model QuoteTemplate {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String   @db.Uuid
+  name         String
+  description  String?
+  scope        String   @default("quote") // quote | invoice
+  // Contenu serialise : { title?, description?, validity_days?, deposit_rate?, discount_type?, discount_value?, notes?, lines: QuoteLineInput[] }
+  payload      Json
+  use_count    Int      @default(0)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  deleted_at   DateTime?
+
+  @@index([tenant_id, scope, deleted_at])
+  @@map("quote_templates")
+}
