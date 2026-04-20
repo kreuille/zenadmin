@@ -17,30 +17,9 @@ export default function FecExportPage() {
 
   const handleExport = async () => {
     setExporting(true);
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    const baseUrl = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
-    try {
-      const res = await fetch(`${baseUrl}/api/accounting/fec?from=${from}&to=${to}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (res.ok) {
-        const blob = await res.blob();
-        const disposition = res.headers.get('Content-Disposition');
-        const filenameMatch = disposition?.match(/filename="(.+)"/);
-        const filename = filenameMatch?.[1] ?? `FEC_${from}_${to}.tsv`;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        const errorBody = await res.json().catch(() => null);
-        alert(errorBody?.error?.message ?? `Erreur HTTP ${res.status}`);
-      }
-    } catch {
-      alert('Erreur reseau');
-    }
+    const { openAuthenticatedDocument } = await import('@/lib/download');
+    const r = await openAuthenticatedDocument(`/api/accounting/fec?from=${from}&to=${to}`, `FEC_${from}_${to}.tsv`);
+    if (!r.ok) alert('Erreur export : ' + r.error);
     setExporting(false);
   };
 

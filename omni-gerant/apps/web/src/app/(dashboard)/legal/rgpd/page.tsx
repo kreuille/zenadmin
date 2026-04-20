@@ -63,22 +63,9 @@ export default function RgpdPage() {
   };
 
   const handleExport = async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    const baseUrl = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
-    const res = await fetch(`${baseUrl}/api/legal/rgpd/export`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (res.ok) {
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'registre-rgpd.tsv';
-      a.click();
-      URL.revokeObjectURL(url);
-    } else {
-      alert('Erreur lors de l\'export');
-    }
+    const { openAuthenticatedDocument } = await import('@/lib/download');
+    const r = await openAuthenticatedDocument('/api/legal/rgpd/export', 'registre-rgpd.tsv');
+    if (!r.ok) alert('Erreur lors de l\'export : ' + r.error);
   };
 
   if (loading) {

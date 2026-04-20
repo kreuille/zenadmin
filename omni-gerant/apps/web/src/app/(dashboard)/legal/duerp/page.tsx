@@ -77,19 +77,8 @@ export default function DuerpPage() {
     if (!duerp) return;
     setPdfLoading(true);
     try {
-      const token = localStorage.getItem('access_token');
-      const apiBase = process.env['NEXT_PUBLIC_API_URL'] || 'https://omni-gerant-api.onrender.com';
-      const response = await fetch(`${apiBase}/api/legal/duerp/${duerp.id}/pdf`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (response.ok) {
-        const html = await response.text();
-        const blob = new Blob([html], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-      }
-    } catch {
-      // silent
+      const { openAuthenticatedDocument } = await import('@/lib/download');
+      await openAuthenticatedDocument(`/api/legal/duerp/${duerp.id}/pdf`, `duerp-${duerp.id.slice(0, 8)}.html`);
     } finally {
       setPdfLoading(false);
     }

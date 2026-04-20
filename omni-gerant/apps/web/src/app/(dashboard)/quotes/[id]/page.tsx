@@ -188,20 +188,9 @@ export default function QuoteDetailPage({ params }: { params: { id: string } }) 
                 setError(result.error.message || 'Erreur lors de la conversion');
               }
             }}
-            onDownloadPdf={() => {
-              const apiUrl = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
-              const token = localStorage.getItem('access_token');
-              // Open in new tab with bearer token in URL is not ideal — use fetch + blob
-              fetch(`${apiUrl}/api/quotes/${params.id}/pdf`, {
-                headers: token ? { Authorization: `Bearer ${token}` } : {},
-              })
-                .then((r) => r.text())
-                .then((html) => {
-                  const blob = new Blob([html], { type: 'text/html' });
-                  const url = URL.createObjectURL(blob);
-                  window.open(url, '_blank');
-                  setTimeout(() => URL.revokeObjectURL(url), 60000);
-                });
+            onDownloadPdf={async () => {
+              const { openAuthenticatedDocument } = await import('@/lib/download');
+              await openAuthenticatedDocument(`/api/quotes/${params.id}/pdf`, `devis-${params.id.slice(0, 8)}.html`);
             }}
             onDelete={handleDelete}
           />
