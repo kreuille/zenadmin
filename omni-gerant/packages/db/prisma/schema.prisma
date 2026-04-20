@@ -1929,3 +1929,74 @@ model TimeEntry {
   @@index([tenant_id, invoice_id])
   @@map("time_entries")
 }
+
+// ============================================================================
+// Vague T - Multi-societes (Holding + Consolidation + Transferts inter-societes)
+// ============================================================================
+
+model HoldingGroup {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String
+  siren         String?                       // SIREN du groupe mere (9 chiffres)
+  description   String?
+  parent_tenant_id String? @db.Uuid           // societe mere principale (si identifiee)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  deleted_at    DateTime?
+
+  @@index([parent_tenant_id])
+  @@map("holding_groups")
+}
+
+model HoldingMembership {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  holding_id        String   @db.Uuid
+  tenant_id         String   @db.Uuid
+  role              String   @default("subsidiary") // parent | subsidiary | joint_venture
+  ownership_bp      Int      @default(10000)      // % detention en basis points (10000 = 100%)
+  joined_at         DateTime @default(now())
+  left_at           DateTime?
+  created_at        DateTime @default(now())
+
+  @@unique([holding_id, tenant_id])
+  @@index([holding_id])
+  @@index([tenant_id])
+  @@map("holding_memberships")
+}
+
+model HoldingAdminAccess {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  holding_id    String   @db.Uuid
+  user_id       String   @db.Uuid              // l'utilisateur qui a acces aux data du holding
+  role          String   @default("holding_admin") // holding_admin | holding_viewer
+  created_at    DateTime @default(now())
+
+  @@unique([holding_id, user_id])
+  @@index([user_id])
+  @@map("holding_admin_access")
+}
+
+model IntercompanyTransfer {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  holding_id          String   @db.Uuid
+  from_tenant_id      String   @db.Uuid         // emet la facture
+  to_tenant_id        String   @db.Uuid         // recoit la facture
+  invoice_id          String?  @db.Uuid         // facture cote emetteur (vente)
+  mirror_invoice_id   String?  @db.Uuid         // facture cote recepteur (achat/purchase)
+  purchase_id         String?  @db.Uuid         // achat associe cote recepteur
+  description         String?
+  amount_ht_cents     Int      @default(0)
+  amount_tva_cents    Int      @default(0)
+  amount_ttc_cents    Int      @default(0)
+  tva_rate            Int      @default(2000)
+  status              String   @default("draft") // draft | emitted | mirrored | settled | cancelled
+  transferred_at      DateTime?
+  settled_at          DateTime?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  @@index([holding_id, status])
+  @@index([from_tenant_id])
+  @@index([to_tenant_id])
+  @@map("intercompany_transfers")
+}

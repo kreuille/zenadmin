@@ -6,6 +6,19 @@ Versionnage : [SemVer](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Vague T — Multi-societes (holding)
+- **T1 Holding** : `HoldingGroup` (name, siren, parent_tenant_id) +
+  `HoldingMembership` (role parent/subsidiary/joint_venture + ownership_bp) +
+  `HoldingAdminAccess` (cross-tenant, role holding_admin/viewer).
+  Createur auto holding_admin. Endpoints CRUD holding + members.
+- **T2 Consolidation** : `GET /api/holding/:id/consolidation?from&to` —
+  CA, TTC, paid, depenses par tenant membre + totaux holding + marge
+  ponderee par ownership_bp.
+- **T3 Transferts inter-societes** : `IntercompanyTransfer` model,
+  `POST /api/holding/:id/transfers` + `/execute` qui cree la facture cote
+  emetteur (avec creation auto client "interco") + purchase cote recepteur
+  (avec creation auto supplier), marque le transfert `mirrored`.
+
 ### Vague S — Gestion de projet
 - **S1 Timesheets** : `TimeEntry` (user/project/phase/date/minutes/hourly_rate),
   workflow draft → submitted → approved → invoiced, CRUD +
