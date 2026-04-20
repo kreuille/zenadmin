@@ -2,7 +2,6 @@ import type { FastifyInstance } from 'fastify';
 import { createPpfClient } from './ppf-client.js';
 import { createPpfSender, type PpfTransmissionRepository, type PpfTransmissionRecord } from './ppf-sender.js';
 import { createPpfReceiver, type ReceivedInvoiceRepository, type ReceivedInvoiceRecord } from './ppf-receiver.js';
-import type { PpfStatus } from './ppf-client.js';
 import { authenticate, requirePermission } from '../../../plugins/auth.js';
 import { injectTenant } from '../../../plugins/tenant.js';
 
@@ -169,6 +168,29 @@ export async function ppfRoutes(app: FastifyInstance) {
         await receiver.handleIncomingInvoice(tenantId, incoming as never);
       }
 
+      // F4 : sync statut interne sur evenement status_changed
+      if (event.type === 'invoice.status_changed' || event.type === 'invoice.accepted' || event.type === 'invoice.rejected' || event.type === 'invoice.paid') {
+        const invoiceId = event.data.invoice_id as string | undefined;
+        const newStatus = event.data.new_status as string | undefined;
+        if (invoiceId && newStatus) {
+          const { prisma } = await import('@zenadmin/db');
+          const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+          if (invoice) {
+            const statusMap: Record<string, string> = {
+              deposited: 'sent', received: 'sent', accepted: 'sent',
+              rejected: 'cancelled', paid: 'paid',
+            };
+            const internal = statusMap[newStatus];
+            if (internal && internal !== invoice.status) {
+              await prisma.invoice.update({
+                where: { id: invoice.id },
+                data: { status: internal, ...(internal === 'paid' ? { paid_at: new Date() } : {}) },
+              });
+            }
+          }
+        }
+      }
+
       return { received: true };
     },
   );
@@ -183,58 +205,6 @@ export async function ppfRoutes(app: FastifyInstance) {
       return result.value;
     },
   );
-
-  // F4 : POST /api/ppf/webhook — Endpoint webhook PPF (public, signature HMAC)
-  app.post('/api/ppf/webhook', async (request, reply) => {
-    const sig = request.headers['x-ppf-signature'] as string | undefined;
-    const body = request.body as {
-      event: 'status_changed' | 'rejected' | 'accepted' | 'paid';
-      invoiceId: string;
-      invoiceNumber: string;
-      newStatus: PpfStatus;
-      timestamp: string;
-      reason?: string;
-    };
-
-    // Verification signature HMAC (placeholder : ppf-client a la fonction validate)
-    if (!sig) {
-      return reply.status(401).send({ error: { code: 'UNAUTHORIZED', message: 'Signature manquante' } });
-    }
-    const isValid = ppfClient.verifyWebhookSignature(JSON.stringify(body), sig);
-    if (!isValid) {
-      return reply.status(401).send({ error: { code: 'UNAUTHORIZED', message: 'Signature invalide' } });
-    }
-
-    if (!body?.invoiceId || !body?.newStatus) {
-      return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: 'invoiceId et newStatus requis' } });
-    }
-
-    // Mettre a jour le statut PPF en DB + synchroniser statut interne facture
-    const { prisma } = await import('@zenadmin/db');
-    const invoice = await prisma.invoice.findUnique({ where: { id: body.invoiceId } });
-    if (!invoice) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Invoice introuvable' } });
-
-    // Mapping PPF -> statut interne
-    const statusMap: Record<string, string | null> = {
-      'deposited': 'sent',
-      'received': 'sent',
-      'accepted': 'sent',
-      'rejected': 'cancelled',
-      'paid': 'paid',
-    };
-    const newInternal = statusMap[body.newStatus] ?? null;
-    if (newInternal && newInternal !== invoice.status) {
-      await prisma.invoice.update({
-        where: { id: invoice.id },
-        data: {
-          status: newInternal,
-          ...(newInternal === 'paid' ? { paid_at: new Date() } : {}),
-        },
-      });
-    }
-
-    return { acknowledged: true, invoiceId: invoice.id, newStatus: newInternal ?? invoice.status };
-  });
 
   // F4 : GET /api/ppf/obligation/:invoiceId — verifier obligation PPF pour une facture
   app.get(
