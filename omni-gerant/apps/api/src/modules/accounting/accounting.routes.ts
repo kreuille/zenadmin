@@ -42,6 +42,34 @@ export async function accountingRoutes(app: FastifyInstance) {
     },
   );
 
+  // N1 : GET /api/accounting/vat/declaration?from=&to= — CA3 TVA
+  app.get(
+    '/api/accounting/vat/declaration',
+    { preHandler: [...preHandlers, requirePermission('accounting', 'read')] },
+    async (request, reply) => {
+      const { from, to } = request.query as { from?: string; to?: string };
+      if (!from || !to) {
+        return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: 'from et to requis (YYYY-MM-DD).' } });
+      }
+      const { computeVatDeclaration } = await import('./vat-declaration.service.js');
+      return await computeVatDeclaration(request.auth.tenant_id, new Date(from), new Date(to));
+    },
+  );
+
+  // N2 : GET /api/accounting/balance-sheet?from=&to= — bilan simplifie
+  app.get(
+    '/api/accounting/balance-sheet',
+    { preHandler: [...preHandlers, requirePermission('accounting', 'read')] },
+    async (request, reply) => {
+      const { from, to } = request.query as { from?: string; to?: string };
+      if (!from || !to) {
+        return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: 'from et to requis.' } });
+      }
+      const { computeBalanceSheet } = await import('./balance-sheet.service.js');
+      return await computeBalanceSheet(request.auth.tenant_id, new Date(from), new Date(to));
+    },
+  );
+
   // G3 : GET /api/accounting/export/pennylane — export pour expert-comptable
   // (Pennylane, Dougs, Tiime...). Format JSON normalise.
   app.get(

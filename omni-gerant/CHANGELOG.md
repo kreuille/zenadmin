@@ -6,6 +6,12 @@ Versionnage : [SemVer](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Vague N — Reporting fiscal
+- **N1** `GET /api/accounting/vat/declaration?from=&to=` — CA3 TVA ventilee
+  par taux FR + net a payer / credit.
+- **N2** `GET /api/accounting/balance-sheet?from=&to=` — bilan simplifie
+  pedagogique (NON officiel).
+
 ### Vague M — IA & Insights
 - **M1 Insights** : `GET /api/ai/insights` — clients a risque (3+ factures
   retard), anomalies CA (z-score), prediction CA mois suivant (moyenne mobile
