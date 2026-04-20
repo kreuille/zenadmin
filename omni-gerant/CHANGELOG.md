@@ -6,6 +6,20 @@ Versionnage : [SemVer](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Vague Z — White-label (multi-domaine + branding + reseller)
+- **Z1 Multi-domaine** : `TenantDomain` avec verification DNS TXT
+  (`_zen-verify.<domain>`), CNAME pointant vers `cname.vercel-dns.com`.
+  `POST /domains/:id/verify` fait une resolve DNS live. Endpoint public
+  `/api/public/branding/by-domain/:domain` pour le portail client
+  personnalise.
+- **Z2 Branding** : `TenantBranding` (logo, logo_dark, primary/secondary/
+  accent colors, font_family, email/pdf footer, favicon, custom_css),
+  `GET/PUT /api/whitelabel/branding`.
+- **Z3 Revendeur** : `Reseller` (commission_bp, max_sub_tenants) +
+  `ResellerTenantLink` (monthly_fee_cents). Endpoints CRUD +
+  `/resellers/:id/sub-tenants` + `/resellers/:id/stats` (calcule commission
+  estimee sur les revenus des sous-tenants).
+
 ### Vague Y — API publique
 - **Y1 OpenAPI 3.1** : `GET /api/openapi.json`, `/api/openapi.yaml`,
   `/api/docs` (Swagger UI embarque) exposent la spec de l'API publique v1.

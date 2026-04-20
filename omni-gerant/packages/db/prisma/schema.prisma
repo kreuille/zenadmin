@@ -2346,3 +2346,78 @@ model ApiKeyUsage {
   @@index([api_key_id, bucket_minute])
   @@map("api_key_usage")
 }
+
+// ============================================================================
+// Vague Z - White-label (multi-domaine + branding + reseller)
+// ============================================================================
+
+model TenantDomain {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String    @db.Uuid
+  domain        String    @unique            // ex: factures.monclient.fr
+  is_primary    Boolean   @default(false)
+  // Verification DNS : on stocke un TXT token et on verifie si le DNS le retourne
+  verification_token String                  // zen-verify=abc123...
+  verified_at   DateTime?
+  ssl_issued_at DateTime?                    // quand Let's Encrypt / Vercel a provisionne SSL
+  cname_target  String    @default("cname.vercel-dns.com")
+  status        String    @default("pending") // pending | verified | active | failed
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  deleted_at    DateTime?
+
+  @@index([tenant_id])
+  @@index([domain])
+  @@map("tenant_domains")
+}
+
+model TenantBranding {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String    @db.Uuid @unique
+  logo_url        String?                    // appliquee sur PDF + emails + portail
+  logo_dark_url   String?
+  primary_color   String?   @default("#111827") // hex, ex: "#111827"
+  secondary_color String?   @default("#6366F1")
+  accent_color    String?   @default("#10B981")
+  font_family     String?   @default("Inter") // Inter | Roboto | Poppins | serif | system
+  email_sender_name String?
+  email_footer    String?                    // HTML footer email
+  pdf_footer      String?                    // pied de page PDF
+  favicon_url     String?
+  custom_css      String?   @db.Text         // CSS custom applique au portail
+  updated_at      DateTime  @updatedAt
+  created_at      DateTime  @default(now())
+
+  @@map("tenant_branding")
+}
+
+model Reseller {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String    @db.Uuid         // tenant du revendeur
+  user_id         String    @db.Uuid         // utilisateur ayant le role reseller
+  commission_bp   Int       @default(2000)    // % sur les sous-tenants, basis points
+  max_sub_tenants Int?                        // null = illimite
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  deleted_at      DateTime?
+
+  @@unique([tenant_id, user_id])
+  @@index([tenant_id])
+  @@map("resellers")
+}
+
+model ResellerTenantLink {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reseller_id   String    @db.Uuid
+  sub_tenant_id String    @db.Uuid
+  // Tarif mensuel custom applique au sous-tenant (si null, tarif public)
+  monthly_fee_cents Int?
+  started_at    DateTime  @default(now())
+  ended_at      DateTime?
+  status        String    @default("active") // active | suspended | terminated
+
+  @@unique([reseller_id, sub_tenant_id])
+  @@index([reseller_id])
+  @@index([sub_tenant_id])
+  @@map("reseller_tenant_links")
+}
