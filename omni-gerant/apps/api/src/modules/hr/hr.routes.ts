@@ -116,14 +116,54 @@ export async function hrRoutes(app: FastifyInstance) {
 
   // ── Employees CRUD ──────────────────────────────────────────────
 
+  // P1-11 : accepte indifferemment camelCase ou snake_case pour les employes
+  // (convention R08 est snake_case ; on garde camelCase en compat +
+  //  deprecation header sur les champs snake_case ancien-style)
+  const SNAKE_TO_CAMEL: Record<string, string> = {
+    first_name: 'firstName', last_name: 'lastName', birth_name: 'birthName',
+    birth_date: 'birthDate', birth_place: 'birthPlace',
+    social_security_number: 'socialSecurityNumber',
+    job_position_id: 'jobPositionId', work_unit_ids: 'workUnitIds',
+    address_line1: 'addressLine1', zip_code: 'zipCode',
+    contract_type: 'contractType', cdd_reason: 'cddReason',
+    hire_date: 'hireDate', end_date: 'endDate',
+    probation_end_date: 'probationEndDate',
+    is_part_time: 'isPartTime', weekly_hours: 'weeklyHours',
+    monthly_gross_cents: 'monthlyGrossCents',
+    specific_trainings: 'specificTrainings',
+    medical_visits: 'medicalVisits',
+    specific_restrictions: 'specificRestrictions',
+  };
+  function normalizeEmployeeBody(body: unknown): unknown {
+    if (!body || typeof body !== 'object') return body;
+    const out: Record<string, unknown> = { ...(body as Record<string, unknown>) };
+    for (const [snake, camel] of Object.entries(SNAKE_TO_CAMEL)) {
+      if (snake in out && !(camel in out)) {
+        out[camel] = out[snake];
+        delete out[snake];
+      }
+    }
+    return out;
+  }
+
   // POST /api/hr/employees
   app.post(
     '/api/hr/employees',
     { preHandler: [...preHandlers, requirePermission('legal', 'create')] },
     async (request, reply) => {
-      const parsed = createEmployeeSchema.safeParse(request.body);
+      const normalized = normalizeEmployeeBody(request.body);
+      const parsed = createEmployeeSchema.safeParse(normalized);
       if (!parsed.success) {
-        return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: 'Invalid data', details: { issues: parsed.error.issues } } });
+        return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: 'Données invalides.', details: { issues: parsed.error.issues } } });
+      }
+      // Deprecation hint pour les clients qui envoient snake_case
+      if (request.body && typeof request.body === 'object') {
+        for (const k of Object.keys(SNAKE_TO_CAMEL)) {
+          if (k in (request.body as Record<string, unknown>)) {
+            reply.header('X-Deprecated-Fields', 'snake_case deprecated on /api/hr/employees; use camelCase');
+            break;
+          }
+        }
       }
       const result = await service.createEmployee(request.auth.tenant_id, parsed.data);
       if (!result.ok) {
@@ -167,7 +207,7 @@ export async function hrRoutes(app: FastifyInstance) {
     { preHandler: [...preHandlers, requirePermission('legal', 'update')] },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const parsed = updateEmployeeSchema.safeParse(request.body);
+      const parsed = updateEmployeeSchema.safeParse(normalizeEmployeeBody(request.body));
       if (!parsed.success) {
         return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: 'Invalid data', details: { issues: parsed.error.issues } } });
       }
