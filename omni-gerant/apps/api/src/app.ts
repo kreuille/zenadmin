@@ -189,6 +189,8 @@ export async function buildApp() {
   await app.register(openapiRoutes);
   const { publicV1Routes } = await import('./modules/public-api/v1.routes.js');
   await app.register(publicV1Routes);
+  const { whitelabelRoutes } = await import('./modules/whitelabel/whitelabel.routes.js');
+  await app.register(whitelabelRoutes);
   await app.register(notificationRoutes);
   const { smsRoutes } = await import('./modules/notification/sms.routes.js');
   await app.register(smsRoutes);
