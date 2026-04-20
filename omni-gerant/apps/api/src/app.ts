@@ -127,7 +127,11 @@ export async function buildApp() {
   await app.register(clientRoutes);
   await app.register(settingsRoutes);
   await app.register(ocrRoutes);
+  const { quoteTemplateRoutes } = await import('./modules/quote/templates/template.routes.js');
+  await app.register(quoteTemplateRoutes);
   await app.register(notificationRoutes);
+  const { smsRoutes } = await import('./modules/notification/sms.routes.js');
+  await app.register(smsRoutes);
   await app.register(jobsRoutes);
   startInternalJobTicker();
   const { billingRoutes } = await import('./modules/billing/billing.routes.js');
