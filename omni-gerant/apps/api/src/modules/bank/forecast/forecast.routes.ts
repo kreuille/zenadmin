@@ -1,9 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { calculateForecast } from './forecast.service.js';
-import { detectRecurringCharges } from './recurrence-detector.js';
-import type { DueDocument } from './forecast.service.js';
-import type { HistoricalTransaction } from './recurrence-detector.js';
+import { detectRecurringCharges, type RecurringCharge } from './recurrence-detector.js';
+import { createPrismaForecastProvider, getMonthlyPayrollCents } from './forecast.provider.js';
 import { authenticate, requirePermission } from '../../../plugins/auth.js';
 import { injectTenant } from '../../../plugins/tenant.js';
 
@@ -28,19 +27,44 @@ export async function forecastRoutes(app: FastifyInstance) {
         });
       }
 
-      // TODO: In production, fetch real data from repos
-      // For now, return demo forecast
-      const currentBalance = 1542300; // 15,423.00 EUR
-      const dueInvoices: DueDocument[] = [];
-      const duePurchases: DueDocument[] = [];
-      const history: HistoricalTransaction[] = [];
+      // B2 : donnees reelles depuis Prisma
+      const provider = createPrismaForecastProvider();
+      const tenantId = request.auth.tenant_id;
+      const [balance, invoices, purchases, history, payrollMonthlyCents] = await Promise.all([
+        provider.getCurrentBalance(tenantId),
+        provider.getDueInvoices(tenantId),
+        provider.getDuePurchases(tenantId),
+        provider.getTransactionHistory(tenantId, 6),
+        getMonthlyPayrollCents(tenantId),
+      ]);
 
-      const recurring = detectRecurringCharges(history);
+      const detectedRecurring = detectRecurringCharges(history);
+
+      // Ajout salaires HR comme charge recurrente mensuelle si masse salariale > 0
+      const allRecurring: RecurringCharge[] = [...detectedRecurring];
+      if (payrollMonthlyCents > 0) {
+        const projections: Date[] = [];
+        const today = new Date();
+        for (let i = 0; i < 4; i++) {
+          const d = new Date(today.getFullYear(), today.getMonth() + i, 28);
+          if (d >= today) projections.push(d);
+        }
+        allRecurring.push({
+          label: 'Salaires (masse salariale + charges patronales)',
+          amount_cents: -payrollMonthlyCents,
+          frequency: 'monthly',
+          category: 'salaires',
+          confidence: 1.0,
+          last_occurrence: new Date(today.getFullYear(), today.getMonth() - 1, 28),
+          next_occurrences: projections,
+        });
+      }
+
       const forecast = calculateForecast(
-        currentBalance,
-        dueInvoices,
-        duePurchases,
-        recurring,
+        balance,
+        invoices,
+        purchases,
+        allRecurring,
         parsed.data.days,
       );
 
@@ -52,9 +76,9 @@ export async function forecastRoutes(app: FastifyInstance) {
   app.get(
     '/api/bank/forecast/recurring',
     { preHandler: [...preHandlers, requirePermission('bank', 'read')] },
-    async (_request, reply) => {
-      // TODO: Fetch real transaction history
-      const history: HistoricalTransaction[] = [];
+    async (request) => {
+      const provider = createPrismaForecastProvider();
+      const history = await provider.getTransactionHistory(request.auth.tenant_id, 6);
       const charges = detectRecurringCharges(history);
       return { charges };
     },

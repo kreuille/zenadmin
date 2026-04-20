@@ -11,6 +11,11 @@ import {
 } from './bank.schemas.js';
 import { authenticate, requirePermission } from '../../plugins/auth.js';
 import { injectTenant } from '../../plugins/tenant.js';
+import { importBankFile } from './import/import.service.js';
+import { runMatching } from './matching/matcher.js';
+import { createPrismaCandidateProvider, createPrismaTransactionMatcher } from './matching/matching.provider.js';
+import { computeBalanceHistory, getMonthlyBalances } from './history/balance-history.service.js';
+import { prisma } from '@zenadmin/db';
 
 // BUSINESS RULE [CDC-2.3]: Endpoints module bancaire
 
@@ -216,6 +221,96 @@ export async function bankRoutes(app: FastifyInstance) {
       );
       if (!result.ok) return reply.status(502).send({ error: result.error });
       return result.value;
+    },
+  );
+
+  // B3 : POST /api/bank/accounts/:id/import — import fichier CSV/OFX
+  app.post(
+    '/api/bank/accounts/:id/import',
+    { preHandler: [...preHandlers, requirePermission('bank', 'create')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as { content?: string; filename?: string };
+      if (!body?.content || !body?.filename) {
+        return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: 'content + filename requis' } });
+      }
+      const r = await importBankFile(request.auth.tenant_id, id, body.content, body.filename);
+      if (!r.ok) {
+        const status = r.error.code === 'NOT_FOUND' ? 404 : 400;
+        return reply.status(status).send({ error: r.error });
+      }
+      return r.value;
+    },
+  );
+
+  // B4 : POST /api/bank/match — lance le rapprochement sur toutes les transactions non matchees
+  app.post(
+    '/api/bank/match',
+    { preHandler: [...preHandlers, requirePermission('bank', 'update')] },
+    async (request, reply) => {
+      const unmatched = await prisma.bankTransaction.findMany({
+        where: { tenant_id: request.auth.tenant_id, matched: false },
+        take: 500,
+      });
+      const candidateProvider = createPrismaCandidateProvider();
+      const txMatcher = createPrismaTransactionMatcher();
+      const txs = unmatched.map((t) => ({
+        id: t.id,
+        bank_account_id: t.bank_account_id,
+        tenant_id: t.tenant_id,
+        date: t.date,
+        amount_cents: t.amount_cents,
+        label: t.label,
+        raw_label: t.raw_label,
+        category: t.category,
+        type: t.type,
+        matched: t.matched,
+        invoice_id: t.invoice_id,
+        purchase_id: t.purchase_id,
+        created_at: t.created_at,
+      }));
+      const r = await runMatching(request.auth.tenant_id, txs as Parameters<typeof runMatching>[1], candidateProvider, txMatcher);
+      if (!r.ok) return reply.status(500).send({ error: r.error });
+      return r.value;
+    },
+  );
+
+  // B4 : POST /api/bank/transactions/:id/match — matcher manuellement une transaction
+  app.post(
+    '/api/bank/transactions/:id/match',
+    { preHandler: [...preHandlers, requirePermission('bank', 'update')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as { invoiceId?: string; purchaseId?: string };
+      if (!body?.invoiceId && !body?.purchaseId) {
+        return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: 'invoiceId ou purchaseId requis' } });
+      }
+      const matcher = createPrismaTransactionMatcher();
+      const r = await matcher.markMatched(id, request.auth.tenant_id, body.invoiceId, body.purchaseId);
+      if (!r.ok) return reply.status(r.error.code === 'NOT_FOUND' ? 404 : 400).send({ error: r.error });
+      return { matched: true };
+    },
+  );
+
+  // B5 : GET /api/bank/history/daily?months=12
+  app.get(
+    '/api/bank/history/daily',
+    { preHandler: [...preHandlers, requirePermission('bank', 'read')] },
+    async (request) => {
+      const months = parseInt((request.query as { months?: string }).months ?? '12', 10);
+      const days = await computeBalanceHistory(request.auth.tenant_id, isNaN(months) ? 12 : months);
+      return { days };
+    },
+  );
+
+  // B5 : GET /api/bank/history/monthly?months=12
+  app.get(
+    '/api/bank/history/monthly',
+    { preHandler: [...preHandlers, requirePermission('bank', 'read')] },
+    async (request) => {
+      const months = parseInt((request.query as { months?: string }).months ?? '12', 10);
+      const series = await getMonthlyBalances(request.auth.tenant_id, isNaN(months) ? 12 : months);
+      return { months: series };
     },
   );
 }
